@@ -1,12 +1,10 @@
 package router
 
 import (
-	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 )
 
@@ -46,12 +44,12 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "text/plain" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
+	// contentType := r.Header.Get("Content-Type")
+	// if contentType != "text/plain" {
+	// 	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	// 	return
 
-	}
+	// }
 	// продолжаем обработку запроса
 	w.WriteHeader(307)
 	// w.Header().Add("Location", GetOriginURL(r.URL.EscapedPath()))
@@ -59,15 +57,15 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	res := fmt.Sprintf(
-		"%s",
-		// "%s %v %s\r\nLocation: %s\r\n",
-		// r.Proto, http.StatusTemporaryRedirect, http.StatusText(http.StatusTemporaryRedirect),
-		GetOriginURL(string(body)),
-	)
+	// res := fmt.Sprintf(
+	// 	"%s",
+	// 	// "%s %v %s\r\nLocation: %s\r\n",
+	// 	// r.Proto, http.StatusTemporaryRedirect, http.StatusText(http.StatusTemporaryRedirect),
+	// 	GetOriginURL(string(body)),
+	// )
 	// w.Header().Set("Location", GetOriginURL(r.URL.EscapedPath()))
-	w.Header().Set("Location", GetOriginURL(string(body)))
-	w.Write([]byte(res))
+	w.Header().Add("Location", GetOriginURL(string(body)))
+	w.Write([]byte(GetOriginURL(string(body))))
 }
 
 func PostHandler(w http.ResponseWriter, r *http.Request) {
@@ -76,12 +74,12 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "text/plain" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
+	// contentType := r.Header.Get("Content-Type")
+	// if contentType != "text/plain" {
+	// 	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	// 	return
 
-	}
+	// }
 	// продолжаем обработку запроса
 	w.WriteHeader(201)
 	body, err := io.ReadAll(r.Body)
@@ -102,16 +100,16 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	// w.Write([]byte(newUrl.String())) // W([]byte(body))
-	w.Header().Set("Content-Length", strconv.Itoa(len(newURL.String())))
-	res := fmt.Sprintf(
-		"%s",
-		// "%s %v %s\r\nContent-Type: %s\r\nContent-Length: %s\r\n\n%s\r\n\n",
-		// r.Proto, http.StatusCreated, http.StatusText(http.StatusCreated),
-		// r.Header.Get("Content-Type"),
-		// w.Header().Get("Content-Length"),
-		newURL.String(),
-	)
-	w.Write([]byte(res))
+	// w.Header().Set("Content-Length", strconv.Itoa(len(newURL.String())))
+	// res := fmt.Sprintf(
+	// 	"%s",
+	// 	// "%s %v %s\r\nContent-Type: %s\r\nContent-Length: %s\r\n\n%s\r\n\n",
+	// 	// r.Proto, http.StatusCreated, http.StatusText(http.StatusCreated),
+	// 	// r.Header.Get("Content-Type"),
+	// 	// w.Header().Get("Content-Length"),
+	// 	newURL.String(),
+	// )
+	w.Write([]byte(newURL.String()))
 }
 
 func Router() *http.ServeMux {
