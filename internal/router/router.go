@@ -55,16 +55,18 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	// продолжаем обработку запроса
 	w.WriteHeader(307)
 	// w.Header().Add("Location", GetOriginURL(r.URL.EscapedPath()))
-	w.Header().Set("Location", GetOriginURL(r.URL.EscapedPath()))
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
 	res := fmt.Sprintf(
-		"%s %v %s\r\nLocation: %s\r\n",
-		r.Proto, http.StatusTemporaryRedirect, http.StatusText(http.StatusTemporaryRedirect),
+		"%s",
+		// "%s %v %s\r\nLocation: %s\r\n",
+		// r.Proto, http.StatusTemporaryRedirect, http.StatusText(http.StatusTemporaryRedirect),
 		GetOriginURL(string(body)),
 	)
+	// w.Header().Set("Location", GetOriginURL(r.URL.EscapedPath()))
+	w.Header().Set("Location", GetOriginURL(string(body)))
 	w.Write([]byte(res))
 }
 
@@ -102,10 +104,11 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	// w.Write([]byte(newUrl.String())) // W([]byte(body))
 	w.Header().Set("Content-Length", strconv.Itoa(len(newURL.String())))
 	res := fmt.Sprintf(
-		"%s %v %s\r\nContent-Type: %s\r\nContent-Length: %s\r\n\n%s\r\n\n",
-		r.Proto, http.StatusCreated, http.StatusText(http.StatusCreated),
-		r.Header.Get("Content-Type"),
-		w.Header().Get("Content-Length"),
+		"%s",
+		// "%s %v %s\r\nContent-Type: %s\r\nContent-Length: %s\r\n\n%s\r\n\n",
+		// r.Proto, http.StatusCreated, http.StatusText(http.StatusCreated),
+		// r.Header.Get("Content-Type"),
+		// w.Header().Get("Content-Length"),
 		newURL.String(),
 	)
 	w.Write([]byte(res))
