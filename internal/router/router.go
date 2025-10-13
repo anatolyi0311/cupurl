@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
+	"sync"
 	"time"
 )
 
@@ -15,31 +17,48 @@ const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" // "01234
 
 func generateRandomString(length int) string {
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	var result []byte
-
 	for i := 0; i < length; i++ {
 		index := seededRand.Intn(len(charset))
 		result = append(result, charset[index])
 	}
-
 	return string(result)
-
 }
-func GetOriginURL(key string) string {
-	urls := map[string]string{
-		"/EwHXdJfB": "https://practicum.yandex.ru/",
+
+// func GetOriginURL(key string) string {
+// 	urls := map[string]string{
+// 		"/EwHXdJfB": "https://practicum.yandex.ru/",
+// 	}
+// 	res, ok := urls[key]
+// 	if !ok {
+// 		urls[key] = "https://practicum.yandex.ru/"
+// 		res = urls[key]
+// 	}
+// 	return res
+// }
+
+// func CopyModelURL()(int, error){
+// 	return io.CopyBuffer())
+// }
+
+type ModelURL struct {
+	s  map[string]string
+	mu sync.Mutex
+}
+
+func (m *ModelURL) SetURL(customURL *url.URL, key string) {
+	m.mu.Lock()
+	m.s[key] = customURL.Host
+	m.mu.Unlock()
+}
+
+func NewModelURL() *ModelURL {
+	return &ModelURL{
+		s: make(map[string]string),
 	}
-	res, ok := urls[key]
-	if !ok {
-		urls[key] = "https://practicum.yandex.ru/"
-		res = urls[key]
-	}
-	return res
 }
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
-	// r.Header.Set("Content-Type", "text/plain")
 	if r.Method != http.MethodGet {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -48,28 +67,30 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	// if contentType != "text/plain" {
 	// 	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	// 	return
-
 	// }
 	// продолжаем обработку запроса
-	w.WriteHeader(307)
-	// w.Header().Add("Location", GetOriginURL(r.URL.EscapedPath()))
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
-	// res := fmt.Sprintf(
-	// 	"%s",
-	// 	// "%s %v %s\r\nLocation: %s\r\n",
-	// 	// r.Proto, http.StatusTemporaryRedirect, http.StatusText(http.StatusTemporaryRedirect),
-	// 	GetOriginURL(string(body)),
-	// )
-	// w.Header().Set("Location", GetOriginURL(r.URL.EscapedPath()))
-	w.Header().Add("Location", GetOriginURL(string(body)))
-	w.Write([]byte(GetOriginURL(string(body))))
+	name := string(body) + ".txt"
+	if len(string(body)) > 0 {
+		name = string(body)[1:] + ".txt"
+	}
+	data, err := os.ReadFile(name)
+	if err != nil {
+		panic(err)
+	}
+	newPath, err := url.JoinPath(string(data), string(body))
+	if err != nil {
+		panic(err)
+	}
+	w.Header().Add("Location", newPath)
+	w.WriteHeader(http.StatusTemporaryRedirect)
+	w.Write([]byte(newPath))
 }
 
 func PostHandler(w http.ResponseWriter, r *http.Request) {
-	// r.Header.Set("Content-Type", "text/plain")
 	if r.Method != http.MethodPost {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -78,37 +99,33 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	// if contentType != "text/plain" {
 	// 	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	// 	return
-
 	// }
 	// продолжаем обработку запроса
-	w.WriteHeader(201)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
-	// w.Write(body) // W([]byte(body))
 	parseURL, err := r.URL.Parse(string(body))
 	if err != nil {
 		panic(err)
 	}
 	scheme := parseURL.Scheme
-	if scheme == "https" {
+	if scheme == "https" || scheme == "" {
 		scheme = "http"
 	}
-	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, generateRandomString(len("EwHXdJfB"))).String())
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, parseURL.Path).String())
 	if err != nil {
 		panic(err)
 	}
-	// w.Write([]byte(newUrl.String())) // W([]byte(body))
-	// w.Header().Set("Content-Length", strconv.Itoa(len(newURL.String())))
-	// res := fmt.Sprintf(
-	// 	"%s",
-	// 	// "%s %v %s\r\nContent-Type: %s\r\nContent-Length: %s\r\n\n%s\r\n\n",
-	// 	// r.Proto, http.StatusCreated, http.StatusText(http.StatusCreated),
-	// 	// r.Header.Get("Content-Type"),
-	// 	// w.Header().Get("Content-Length"),
-	// 	newURL.String(),
-	// )
+	// data := make([]byte, 0)
+	name := generateRandomString(6) + ".txt"
+	err = os.WriteFile(name, []byte(newURL.String()), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	// modelURL := NewModelURL()
+	// modelURL.SetURL(newURL, parseURL.Path)
+	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(newURL.String()))
 }
 
