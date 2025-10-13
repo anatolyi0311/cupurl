@@ -2,30 +2,25 @@ package router
 
 import (
 	"io"
-	"math/rand"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 // curl -X POST -H "Content-Type: text/plain" -d 'https://practicum.yandex.ru/' http://localhost:8080/
 // curl -X GET -H "Content-Type: text/plain" -d '/EwHXdJfB' http://localhost:8080/{id}
 
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" // "0123456789"
+// const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" // "0123456789"
 
-func generateRandomString(length int) string {
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+// func generateRandomString(length int) string {
+// 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+// 	var result []byte
+// 	for i := 0; i < length; i++ {
+// 		index := seededRand.Intn(len(charset))
+// 		result = append(result, charset[index])
+// 	}
+// 	return string(result)
+// }
 
-	var result []byte
-
-	for i := 0; i < length; i++ {
-		index := seededRand.Intn(len(charset))
-		result = append(result, charset[index])
-	}
-
-	return string(result)
-
-}
 func GetOriginURL(key string) string {
 	urls := map[string]string{
 		"/EwHXdJfB": "https://practicum.yandex.ru/",
@@ -39,7 +34,6 @@ func GetOriginURL(key string) string {
 }
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
-	// r.Header.Set("Content-Type", "text/plain")
 	if r.Method != http.MethodGet {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -51,42 +45,26 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 
 	// }
 	// продолжаем обработку запроса
-	w.WriteHeader(307)
-	// w.Header().Add("Location", GetOriginURL(r.URL.EscapedPath()))
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
-	// res := fmt.Sprintf(
-	// 	"%s",
-	// 	// "%s %v %s\r\nLocation: %s\r\n",
-	// 	// r.Proto, http.StatusTemporaryRedirect, http.StatusText(http.StatusTemporaryRedirect),
-	// 	GetOriginURL(string(body)),
-	// )
 	// w.Header().Set("Location", GetOriginURL(r.URL.EscapedPath()))
 	w.Header().Add("Location", GetOriginURL(string(body)))
+	w.WriteHeader(http.StatusTemporaryRedirect)
 	w.Write([]byte(GetOriginURL(string(body))))
 }
 
 func PostHandler(w http.ResponseWriter, r *http.Request) {
-	// r.Header.Set("Content-Type", "text/plain")
 	if r.Method != http.MethodPost {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	// contentType := r.Header.Get("Content-Type")
-	// if contentType != "text/plain" {
-	// 	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-	// 	return
-
-	// }
 	// продолжаем обработку запроса
-	w.WriteHeader(201)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
-	// w.Write(body) // W([]byte(body))
 	parseURL, err := r.URL.Parse(string(body))
 	if err != nil {
 		panic(err)
@@ -99,16 +77,8 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	// w.Write([]byte(newUrl.String())) // W([]byte(body))
 	// w.Header().Set("Content-Length", strconv.Itoa(len(newURL.String())))
-	// res := fmt.Sprintf(
-	// 	"%s",
-	// 	// "%s %v %s\r\nContent-Type: %s\r\nContent-Length: %s\r\n\n%s\r\n\n",
-	// 	// r.Proto, http.StatusCreated, http.StatusText(http.StatusCreated),
-	// 	// r.Header.Get("Content-Type"),
-	// 	// w.Header().Get("Content-Length"),
-	// 	newURL.String(),
-	// )
+	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(newURL.String()))
 }
 
