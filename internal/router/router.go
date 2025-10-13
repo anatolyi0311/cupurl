@@ -28,7 +28,7 @@ func generateRandomString(length int) string {
 	return string(result)
 
 }
-func GetOriginUrl(key string) string {
+func GetOriginURL(key string) string {
 	urls := map[string]string{
 		"/EwHXdJfB": "https://practicum.yandex.ru/",
 	}
@@ -53,16 +53,16 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// продолжаем обработку запроса
 	w.WriteHeader(307)
-	w.Header().Add("Location", GetOriginUrl(r.URL.EscapedPath()))
-	// w.Header().Set("Location", GetOriginUrl(r.URL.EscapedPath()))
+	// w.Header().Add("Location", GetOriginURL(r.URL.EscapedPath()))
+	w.Header().Set("Location", GetOriginURL(r.URL.EscapedPath()))
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
 	res := fmt.Sprintf(
-		"%s %d %s\r\nLocation: %s\r\n%s\n",
-		r.Proto, http.StatusTemporaryRedirect, http.StatusText(307),
-		GetOriginUrl(string(body)),
+		"%s %v %s\r\nLocation: %s\r\n%s\n",
+		r.Proto, http.StatusTemporaryRedirect, http.StatusText(http.StatusTemporaryRedirect),
+		GetOriginURL(string(body)),
 		r.URL.EscapedPath(),
 	)
 	w.Write([]byte(res))
@@ -87,24 +87,26 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	// w.Write(body) // W([]byte(body))
-	parseUrl, err := r.URL.Parse(string(body))
-	_ = parseUrl
+	parseURL, err := r.URL.Parse(string(body))
 	if err != nil {
 		panic(err)
 	}
-	scheme := parseUrl.Scheme
+	scheme := parseURL.Scheme
 	if scheme == "https" {
 		scheme = "http"
 	}
-	newUrl, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, generateRandomString(len("EwHXdJfB"))).String())
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, generateRandomString(len("EwHXdJfB"))).String())
+	if err != nil {
+		panic(err)
+	}
 	// w.Write([]byte(newUrl.String())) // W([]byte(body))
-	w.Header().Set("Content-Length", strconv.Itoa(len(newUrl.String())))
+	w.Header().Set("Content-Length", strconv.Itoa(len(newURL.String())))
 	res := fmt.Sprintf(
-		"%s %d %s\r\nContent-Type: %s\r\nContent-Length: %s\r\n\n%s\r\n\n",
-		r.Proto, http.StatusCreated, http.StatusText(201),
+		"%s %v %s\r\nContent-Type: %s\r\nContent-Length: %s\r\n\n%s\r\n\n",
+		r.Proto, http.StatusCreated, http.StatusText(http.StatusCreated),
 		r.Header.Get("Content-Type"),
 		w.Header().Get("Content-Length"),
-		newUrl.String(),
+		newURL.String(),
 	)
 	w.Write([]byte(res))
 }
