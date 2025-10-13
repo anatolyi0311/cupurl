@@ -95,7 +95,7 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	if scheme == "https" {
 		scheme = "http"
 	}
-	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, generateRandomString(len("EwHXdJfB"))).String())
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, parseURL.Path).String())
 	if err != nil {
 		panic(err)
 	}
