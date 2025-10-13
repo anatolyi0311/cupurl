@@ -34,7 +34,8 @@ func GetOriginURL(key string) string {
 	}
 	res, ok := urls[key]
 	if !ok {
-		return ""
+		urls[key] = "https://practicum.yandex.ru/"
+		res = urls[key]
 	}
 	return res
 }
@@ -60,10 +61,9 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	res := fmt.Sprintf(
-		"%s %v %s\r\nLocation: %s\r\n%s\n",
+		"%s %v %s\r\nLocation: %s\r\n",
 		r.Proto, http.StatusTemporaryRedirect, http.StatusText(http.StatusTemporaryRedirect),
 		GetOriginURL(string(body)),
-		r.URL.EscapedPath(),
 	)
 	w.Write([]byte(res))
 }
