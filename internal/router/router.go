@@ -112,7 +112,7 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	scheme := "http"
 	path := "data" //generateRandomString(6)
-	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(parseURL.Host, parseURL.Path).String())
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, parseURL.Path).String())
 	if err != nil {
 		panic(err)
 	}
