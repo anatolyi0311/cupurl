@@ -85,7 +85,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	w.Header().Add("Location", newPath)
+	w.Header().Set("Location", newPath)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 	w.Write([]byte(newPath))
 }
@@ -109,24 +109,21 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	scheme := parseURL.Scheme
-	if scheme == "https" || scheme == "" {
-		scheme = "http"
-	}
-	name := generateRandomString(6) + ".txt"
-	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, parseURL.Path, name).String())
+	scheme := "http"
+	name := generateRandomString(6)
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, name).String())
 	if err != nil {
 		panic(err)
 	}
-	// data := make([]byte, 0)
-	err = os.WriteFile(name, []byte(newURL.String()), os.ModePerm)
+	err = os.WriteFile(name+".txt", []byte(newURL.String()), os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
 	// modelURL := NewModelURL()
 	// modelURL.SetURL(newURL, parseURL.Path)
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(newURL.String()))
+	// w.Write([]byte(newURL.String()))
+	w.Write([]byte(parseURL.String()))
 }
 
 func Router() *http.ServeMux {
