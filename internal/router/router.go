@@ -63,11 +63,11 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "text/plain" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
+	// contentType := r.Header.Get("Content-Type")
+	// if contentType != "text/plain" {
+	// 	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	// 	return
+	// }
 	// продолжаем обработку запроса
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -95,11 +95,11 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "text/plain" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
+	// contentType := r.Header.Get("Content-Type")
+	// if contentType != "text/plain" {
+	// 	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	// 	return
+	// }
 	// продолжаем обработку запроса
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
