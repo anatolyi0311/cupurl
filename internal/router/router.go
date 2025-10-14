@@ -74,6 +74,9 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	name := string(body) + ".txt"
+	if len(string(body)) > 0 {
+		name = string(body)[1:] + ".txt"
+	}
 	data, err := os.ReadFile(name)
 	if err != nil {
 		panic(err)
