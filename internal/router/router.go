@@ -85,7 +85,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	w.Header().Set("Location", newPath)
+	w.Header().Add("Location", newPath)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 	w.Write([]byte(newPath))
 }
@@ -101,17 +101,17 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 	// продолжаем обработку запроса
-	// body, err := io.ReadAll(r.Body)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// parseURL, err := r.URL.Parse(string(body))
-	// if err != nil {
-	// 	panic(err)
-	// }
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	}
+	parseURL, err := r.URL.Parse(string(body))
+	if err != nil {
+		panic(err)
+	}
 	scheme := "http"
 	path := generateRandomString(6)
-	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, path).String())
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, parseURL.Path, path).String())
 	if err != nil {
 		panic(err)
 	}
