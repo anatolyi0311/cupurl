@@ -24,6 +24,7 @@ func main() {
 		panic(err)
 	}
 	long = strings.TrimSuffix(long, "\n")
+	fmt.Println("long:", long)
 	// заполняем контейнер данными
 	data.Set("url", long)
 	// добавляем HTTP-клиент
