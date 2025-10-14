@@ -73,10 +73,11 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	name := string(body) + ".txt"
-	if len(string(body)) > 0 {
-		name = string(body)[1:] + ".txt"
-	}
+	// name := string(body) + ".txt"
+	// if len(string(body)) > 0 {
+	// 	name = string(body)[1:] + ".txt"
+	// }
+	name := "data" + ".txt"
 	data, err := os.ReadFile(name)
 	if err != nil {
 		panic(err)
@@ -109,17 +110,13 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	scheme := parseURL.Scheme
-	if scheme == "https" || scheme == "" {
-		scheme = "http"
-	}
-	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, parseURL.Path).String())
+	scheme := "http"
+	path := "data" //generateRandomString(6)
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(parseURL.Host, parseURL.Path).String())
 	if err != nil {
 		panic(err)
 	}
-	// data := make([]byte, 0)
-	name := generateRandomString(6) + ".txt"
-	err = os.WriteFile(name, []byte(newURL.String()), os.ModePerm)
+	err = os.WriteFile(path+".txt", []byte(newURL.String()), os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
