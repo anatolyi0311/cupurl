@@ -111,12 +111,11 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	scheme := "http"
-	path := "data" //generateRandomString(6)
-	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, parseURL.Path).String())
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(parseURL.Host).String())
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile(path+".txt", []byte(newURL.String()), os.ModePerm)
+	err = os.WriteFile("data.txt", []byte(newURL.String()), os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
