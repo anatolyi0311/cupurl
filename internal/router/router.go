@@ -82,10 +82,11 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	newPath, err := url.JoinPath(string(data), string(body))
+	u, err := url.Parse("http:/" + string(body))
 	if err != nil {
 		panic(err)
 	}
-	w.Header().Add("Location", newPath)
+	w.Header().Add("Location", u.String())
 	w.WriteHeader(http.StatusTemporaryRedirect)
 	w.Write([]byte(newPath))
 }
