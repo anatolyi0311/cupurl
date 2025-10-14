@@ -101,29 +101,28 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 	// продолжаем обработку запроса
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		panic(err)
-	}
-	parseURL, err := r.URL.Parse(string(body))
-	if err != nil {
-		panic(err)
-	}
+	// body, err := io.ReadAll(r.Body)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// parseURL, err := r.URL.Parse(string(body))
+	// if err != nil {
+	// 	panic(err)
+	// }
 	scheme := "http"
-	name := generateRandomString(6)
-	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, name).String())
+	path := generateRandomString(6)
+	newURL, err := url.Parse(scheme + ":/" + r.URL.JoinPath(r.Host, path).String())
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile(name+".txt", []byte(newURL.String()), os.ModePerm)
+	err = os.WriteFile(path+".txt", []byte(newURL.String()), os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
 	// modelURL := NewModelURL()
 	// modelURL.SetURL(newURL, parseURL.Path)
 	w.WriteHeader(http.StatusCreated)
-	// w.Write([]byte(newURL.String()))
-	w.Write([]byte(parseURL.String()))
+	w.Write([]byte(newURL.String()))
 }
 
 func Router() *http.ServeMux {
