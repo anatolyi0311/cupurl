@@ -40,7 +40,7 @@ func (s *Server) router() {
 
 func (s *Server) Run() {
 	fmt.Println("server started ...")
-	if err := http.ListenAndServe(addr, s.route); err != nil {
+	if err := http.ListenAndServe(s.cfg.Opts.Addr, s.route); err != nil {
 		log.Fatalln(err)
 	}
 }
@@ -72,7 +72,7 @@ func (s *Server) SetURL(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte("http://localhost:8080/" + hash))
+	res.Write([]byte(s.cfg.Opts.BaseURL + hash))
 }
 
 func (s *Server) GetURL(res http.ResponseWriter, req *http.Request) {
