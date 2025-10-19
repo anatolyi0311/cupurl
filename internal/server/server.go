@@ -9,6 +9,7 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 
+	"github.com/anatolyi0311/cupurl/internal/config"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
 )
 
@@ -17,12 +18,14 @@ const (
 )
 
 type Server struct {
+	cfg   *config.Config
 	route *chi.Mux
 	su    srv.CaseURL
 }
 
-func NewServer() *Server {
+func NewServer(cfg *config.Config) *Server {
 	server := &Server{
+		cfg:   cfg,
 		route: chi.NewRouter(),
 		su:    srv.NewService(),
 	}
@@ -36,7 +39,7 @@ func (s *Server) router() {
 }
 
 func (s *Server) Run() {
-	fmt.Println("server started ...")
+	fmt.Println("server started on port 8080...")
 	if err := http.ListenAndServe(addr, s.route); err != nil {
 		log.Fatalln(err)
 	}
