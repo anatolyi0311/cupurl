@@ -24,10 +24,11 @@ func NewServer() *Server {
 		route: http.NewServeMux(),
 		su:    srv.NewService(),
 	}
+	server.router()
 	return server
 }
 
-func (s *Server) Route() {
+func (s *Server) router() {
 	s.route.HandleFunc("/", s.SetURL)
 	s.route.HandleFunc("/{id}", s.GetURL)
 }
