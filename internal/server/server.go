@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	chi "github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5"
 
-	cfg "github.com/anatolyi0311/cupurl/internal/config"
+	"github.com/anatolyi0311/cupurl/internal/config"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
 )
 
@@ -18,12 +18,12 @@ const (
 )
 
 type Server struct {
-	cfg   *cfg.Config
+	cfg   *config.Config
 	route *chi.Mux
 	su    srv.CaseURL
 }
 
-func NewServer(cfg *cfg.Config) *Server {
+func NewServer(cfg *config.Config) *Server {
 	server := &Server{
 		cfg:   cfg,
 		route: chi.NewRouter(),
@@ -72,7 +72,7 @@ func (s *Server) SetURL(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte(s.cfg.Opts.BaseURL + hash))
+	res.Write([]byte(s.cfg.Opts.BaseURL + "/" + hash))
 }
 
 func (s *Server) GetURL(res http.ResponseWriter, req *http.Request) {

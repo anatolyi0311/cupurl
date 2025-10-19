@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/anatolyi0311/cupurl/internal/config"
 )
 
 // Mock для use case
@@ -17,9 +19,16 @@ type MockCaseURL struct {
 }
 
 func newWrapServer() *Server {
+	cfg := &config.Config{
+		Opts: &config.Options{
+			Addr:    "localhost:8080",
+			BaseURL: "localhost:8080",
+		},
+	}
 	cu := &MockCaseURL{}
 	return &Server{
-		su: cu,
+		cfg: cfg,
+		su:  cu,
 	}
 }
 
