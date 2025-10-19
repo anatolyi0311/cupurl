@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"path"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -34,8 +35,8 @@ func NewServer(cfg *config.Config) *Server {
 }
 
 func (s *Server) router() {
-	s.route.HandleFunc("/", s.SetURL)
-	s.route.HandleFunc("/{id}", s.GetURL)
+	s.route.Post("/", s.SetURL)
+	s.route.Get("/{id}", s.GetURL)
 }
 
 func (s *Server) Run() {
@@ -46,11 +47,6 @@ func (s *Server) Run() {
 }
 
 func (s *Server) SetURL(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		http.Error(res, "method must be POST", http.StatusBadRequest)
-		return
-	}
-
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "text/plain" {
 		http.Error(res, "Content-Type must be text/plain", http.StatusBadRequest)
@@ -72,16 +68,15 @@ func (s *Server) SetURL(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte(s.cfg.Opts.BaseURL + "/" + hash))
+	res.Write([]byte(path.Join(s.cfg.Opts.BaseURL, hash)))
 }
 
 func (s *Server) GetURL(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		http.Error(res, "method must be GET", http.StatusBadRequest)
-		return
+	pathURL := chi.URLParam(req, "id")
+	if pathURL == "" {
+		pathURL = req.URL.Path
 	}
-
-	hash := strings.TrimPrefix(req.URL.Path, "/")
+	hash := strings.TrimPrefix(pathURL, "/")
 
 	url, err := s.su.GetURL(hash)
 	if err != nil {

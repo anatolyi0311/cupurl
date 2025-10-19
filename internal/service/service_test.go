@@ -1,12 +1,15 @@
 package service
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+const maskURL = "maskURL"
 
 type MockRepo struct {
 	mock.Mock
@@ -30,6 +33,7 @@ func (m *MockRepo) Set(url, hash string) error {
 }
 
 func TestServiceSetURL(t *testing.T) {
+	hash := sha256.Sum256([]byte(maskURL))
 	tests := []struct {
 		name     string
 		url      string
@@ -40,14 +44,14 @@ func TestServiceSetURL(t *testing.T) {
 	}{
 		{
 			name:     "success set",
-			url:      "shortUrl",
-			wantHash: "afddbf46c9cb7e26",
+			url:      maskURL,
+			wantHash: fmt.Sprintf("%x", hash[:sizeHash]),
 			wantErr:  nil,
 			repoIsOn: true,
-			mockHash: "afddbf46c9cb7e26",
+			mockHash: fmt.Sprintf("%x", hash[:sizeHash]),
 		},
 		{
-			name:     "empty upl",
+			name:     "empty url",
 			url:      "",
 			wantHash: "",
 			wantErr:  fmt.Errorf("incorrect url"),
@@ -72,6 +76,7 @@ func TestServiceSetURL(t *testing.T) {
 }
 
 func TestServiceGetURL(t *testing.T) {
+	hash := sha256.Sum256([]byte(maskURL))
 	tests := []struct {
 		name     string
 		hash     string
@@ -82,14 +87,14 @@ func TestServiceGetURL(t *testing.T) {
 	}{
 		{
 			name:     "success get",
-			hash:     "afddbf46c9cb7e26",
-			wantURL:  "shortUrl",
+			hash:     fmt.Sprintf("%x", hash[:sizeHash]),
+			wantURL:  maskURL,
 			wantErr:  nil,
 			repoIsOn: true,
-			mockHash: "afddbf46c9cb7e26",
+			mockHash: fmt.Sprintf("%x", hash[:sizeHash]),
 		},
 		{
-			name:     "empty upl",
+			name:     "empty url",
 			hash:     "",
 			wantURL:  "",
 			wantErr:  fmt.Errorf("incorrect id"),

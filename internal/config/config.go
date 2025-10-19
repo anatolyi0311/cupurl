@@ -16,14 +16,6 @@ type Options struct {
 	BaseURL string
 }
 
-// func ParseURL(addr *string, param string) error {
-// 	_, err := url.Parse("https://" + *addr)
-// 	if err != nil {
-// 		return fmt.Errorf("incorrect parametr `-%s` %s", param, *addr)
-// 	}
-// 	return nil
-// }
-
 func newOpts() (*Options, error) {
 	var addr = flag.String("a", "localhost:8080", "server host")
 	var baseURL = flag.String("b", "localhost:8080", "value before short URL")

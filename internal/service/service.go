@@ -8,6 +8,8 @@ import (
 	repo "github.com/anatolyi0311/cupurl/internal/repository"
 )
 
+const sizeHash = 16
+
 type CaseURL interface {
 	SetURL(url string) (string, error)
 	GetURL(hash string) (string, error)
@@ -24,27 +26,19 @@ func NewService() CaseURL {
 }
 
 func (s *Service) SetURL(urlTo string) (string, error) {
-	// pUrl, err:= url.Parse(urlTo)
-	// if err != nil {
-	// 	return "", fmt.Errorf("incorrect url")
-	// }
 	urlTo = strings.TrimSpace(urlTo)
 	if urlTo == "" {
 		return "", fmt.Errorf("incorrect url")
 	}
 
 	hash := sha256.Sum256([]byte(urlTo))
-	shortHash := fmt.Sprintf("%x", hash[:8])
+	shortHash := fmt.Sprintf("%x", hash[:sizeHash])
 	err := s.repo.Set(urlTo, shortHash)
 
 	return shortHash, err
 }
 
 func (s *Service) GetURL(hash string) (string, error) {
-	// pUrl, err:= url.Parse(urlTo)
-	// if err != nil {
-	// 	return "", fmt.Errorf("incorrect url")
-	// }
 	hash = strings.TrimSpace(hash)
 	if hash == "" {
 		return "", fmt.Errorf("incorrect id")
