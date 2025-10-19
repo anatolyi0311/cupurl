@@ -9,6 +9,7 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 
+	cfg "github.com/anatolyi0311/cupurl/internal/config"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
 )
 
@@ -17,12 +18,14 @@ const (
 )
 
 type Server struct {
+	cfg   *cfg.Config
 	route *chi.Mux
 	su    srv.CaseURL
 }
 
-func NewServer() *Server {
+func NewServer(cfg *cfg.Config) *Server {
 	server := &Server{
+		cfg:   cfg,
 		route: chi.NewRouter(),
 		su:    srv.NewService(),
 	}
