@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	chi "github.com/go-chi/chi/v5"
+
 	srv "github.com/anatolyi0311/cupurl/internal/service"
 )
 
@@ -15,13 +17,13 @@ const (
 )
 
 type Server struct {
-	route *http.ServeMux
+	route *chi.Mux
 	su    srv.CaseURL
 }
 
 func NewServer() *Server {
 	server := &Server{
-		route: http.NewServeMux(),
+		route: chi.NewRouter(),
 		su:    srv.NewService(),
 	}
 	server.router()
