@@ -16,32 +16,35 @@ type Options struct {
 	BaseURL string
 }
 
-func ParseURL(addr *string, param string) error {
-	_, err := url.Parse("https://" + *addr)
-	if err != nil {
-		return fmt.Errorf("incorrect parametr `-%s` %s", param, *addr)
-	}
-	return nil
-}
+// func ParseURL(addr *string, param string) error {
+// 	_, err := url.Parse("https://" + *addr)
+// 	if err != nil {
+// 		return fmt.Errorf("incorrect parametr `-%s` %s", param, *addr)
+// 	}
+// 	return nil
+// }
 
 func newOpts() (*Options, error) {
 	var addr = flag.String("a", "localhost:8080", "server host")
-	var baseURL = flag.String("b", "localhost:8080", "host before short URL")
+	var baseURL = flag.String("b", "localhost:8080", "value before short URL")
 	flag.Parse()
 
-	if ParseURL(addr, "a") != nil {
-		return nil, ParseURL(addr, "a")
+	_, err := url.Parse("https://" + *addr)
+	if err != nil {
+		return nil, fmt.Errorf("incorrect parametr `-a` %s", *addr)
 	}
-	if ParseURL(baseURL, "b") != nil {
-		return nil, ParseURL(baseURL, "b")
+
+	_, err = url.Parse("https://" + *baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("incorrect parametr `-b` %s", *baseURL)
 	}
 
 	if !strings.HasPrefix(*addr, "http://") && !strings.HasPrefix(*addr, "https://") {
-		*baseURL = "http://" + *addr
+		*addr = "http://" + *addr
 	}
 	*addr = strings.TrimSuffix(*addr, "/")
-	*baseURL = strings.TrimSuffix(*baseURL, "/")
 
+	*baseURL = strings.TrimSuffix(*baseURL, "/")
 	if !strings.HasPrefix(*baseURL, "http://") && !strings.HasPrefix(*baseURL, "https://") {
 		*baseURL = "http://" + *baseURL
 	}
