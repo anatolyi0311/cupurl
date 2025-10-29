@@ -39,7 +39,7 @@ func (s *Server) router() {
 }
 
 func (s *Server) Run() {
-	fmt.Println("server started ...")
+	fmt.Println("server started ... " + s.cfg.Opts.Addr + " base: " + s.cfg.Opts.BaseURL)
 	if err := http.ListenAndServe(s.cfg.Opts.Addr, s.route); err != nil {
 		log.Fatalln(err)
 	}
