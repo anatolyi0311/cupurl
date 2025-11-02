@@ -58,7 +58,7 @@ func (s *Server) Run() {
 		"addr", s.cfg.Opts.Addr,
 		"base", s.cfg.Opts.BaseURL,
 	)
-	if err := http.ListenAndServe(s.cfg.Opts.Addr, s.route); err != nil {
+	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.GzipHandle(s.route)); err != nil {
 		log.Fatalln(err)
 	}
 }
