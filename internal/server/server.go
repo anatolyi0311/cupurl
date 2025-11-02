@@ -1,15 +1,16 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
+	"github.com/anatolyi0311/cupurl/internal/handler"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
 )
 
@@ -21,25 +22,31 @@ type Server struct {
 	cfg   *config.Config
 	route *chi.Mux
 	su    srv.CaseURL
+	sugar zap.SugaredLogger
 }
 
-func NewServer(cfg *config.Config) *Server {
+func NewServer(cfg *config.Config, sugar zap.SugaredLogger) *Server {
 	server := &Server{
 		cfg:   cfg,
 		route: chi.NewRouter(),
 		su:    srv.NewService(),
+		sugar: sugar,
 	}
 	server.router()
 	return server
 }
 
 func (s *Server) router() {
-	s.route.Post("/", s.SetURL)
-	s.route.Get("/{id}", s.GetURL)
+	s.route.Post("/", handler.WithLogging(s.SetURL, s.sugar))
+	s.route.Get("/{id}", handler.WithLogging(s.GetURL, s.sugar))
 }
 
 func (s *Server) Run() {
-	fmt.Println("server started ... " + s.cfg.Opts.Addr + " base: " + s.cfg.Opts.BaseURL)
+	s.sugar.Infow(
+		"Starting server",
+		"addr", s.cfg.Opts.Addr,
+		"base", s.cfg.Opts.BaseURL,
+	)
 	if err := http.ListenAndServe(s.cfg.Opts.Addr, s.route); err != nil {
 		log.Fatalln(err)
 	}

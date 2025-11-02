@@ -3,15 +3,28 @@ package main
 import (
 	"log"
 
+	"go.uber.org/zap"
+
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/server"
 )
+
+var sugar zap.SugaredLogger
 
 func main() {
 	cfg, err := config.NewConfig()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	s := server.NewServer(cfg)
+	// logging.
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		// вызываем панику, если ошибка
+		log.Fatal(err)
+	}
+	defer logger.Sync()
+	sugar = *logger.Sugar()
+
+	s := server.NewServer(cfg, sugar)
 	s.Run()
 }
