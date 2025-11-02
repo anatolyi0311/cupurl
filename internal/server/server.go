@@ -20,11 +20,11 @@ import (
 // 	addr = "localhost:8080"
 // )
 
-type JsonResult struct {
+type ResultURL struct {
 	Result string `json:"result" doc:"result"`
 }
 
-type JsonURL struct {
+type URL struct {
 	URL *string `json:"url"`
 }
 
@@ -72,7 +72,7 @@ func (s *Server) JSONHandler(w http.ResponseWriter, req *http.Request) {
 
 	// id := req.URL.Query().Get("url")
 
-	var addr JsonURL
+	var addr URL
 	var buf bytes.Buffer
 	// читаем тело запроса
 	_, err := buf.ReadFrom(req.Body)
@@ -91,7 +91,7 @@ func (s *Server) JSONHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resp, err := json.Marshal(JsonResult{Result: s.cfg.Opts.BaseURL + "/" + hash})
+	resp, err := json.Marshal(ResultURL{Result: s.cfg.Opts.BaseURL + "/" + hash})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
