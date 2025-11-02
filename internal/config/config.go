@@ -4,9 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
-
-	"github.com/caarlos0/env/v11"
+	// "github.com/caarlos0/env/v11"
 )
 
 const (
@@ -23,32 +23,35 @@ type Options struct {
 }
 
 func newOpts() (*Options, error) {
-	var opts Options
-	err := env.Parse(&opts)
-	if err == nil {
-		_, err := url.Parse("http://" + opts.Addr)
-		if err == nil {
-			_, err := url.Parse(opts.BaseURL)
-			if err == nil {
-				return &opts, nil
-			}
-		}
-	}
-
-	// envAddr := os.Getenv("SERVER_ADDRESS")
-	// envBaseURL := os.Getenv("BASE_URL")
-	// if envAddr != "" && envBaseURL != "" {
-	// 	_, err1 := url.Parse("http://" + envAddr)
-	// 	parsedBaseURL, err2 := url.Parse(envBaseURL)
-	// 	if err1 == nil && err2 == nil {
-	// 		baseURL := "http://" + parsedBaseURL.Host
-	// 		baseURL = strings.TrimSuffix(baseURL, "/")
-	// 		return &Options{
-	// 			Addr:    envAddr,
-	// 			BaseURL: baseURL,
-	// 		}, nil
+	// var opts Options
+	// err := env.Parse(&opts)
+	// if err == nil {
+	// 	_, err := url.Parse("http://" + opts.Addr)
+	// 	if err == nil {
+	// 		_, err := url.Parse(opts.BaseURL)
+	// 		if err == nil {
+	// 			return &opts, nil
+	// 		}
 	// 	}
 	// }
+
+	envAddr := os.Getenv("SERVER_ADDRESS")
+	envBaseURL := os.Getenv("BASE_URL")
+	if envAddr != "" && envBaseURL != "" {
+		_, err := url.Parse("http://" + envAddr)
+		if err == nil {
+			_, err := url.Parse(envBaseURL)
+			if err == nil {
+				// baseURL := "http://" + parsedBaseURL.Host
+				// baseURL = strings.TrimSuffix(baseURL, "/")
+				return &Options{
+					Addr:    envAddr,
+					BaseURL: envBaseURL,
+				}, nil
+			}
+
+		}
+	}
 
 	var addr = flag.String("a", defaultAddr, "server host")
 	var baseURL = flag.String("b", defaultAddr, "value before short URL")
