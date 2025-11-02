@@ -176,3 +176,72 @@ func TestServerSetURL(t *testing.T) {
 		})
 	}
 }
+
+func TestServerJSONHandler(t *testing.T) {
+	tests := []struct {
+		name        string
+		method      string
+		url         string
+		contentType string
+
+		isOn      bool
+		mockURL   string
+		mockHash  string
+		mockError error
+
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:        "successful post",
+			method:      http.MethodPost,
+			url:         "{\"url\":\"https://practicum.yandex.ru/\"}",
+			contentType: "application/json",
+
+			isOn:      true,
+			mockURL:   "https://practicum.yandex.ru/",
+			mockHash:  "abc",
+			mockError: nil,
+
+			expectedStatus: http.StatusCreated,
+			expectedBody:   "{\"result\":\"localhost:8080/abc\"}",
+		},
+		{
+			name:        "bad content type",
+			method:      http.MethodPost,
+			url:         "https://practicum.yandex.ru/",
+			contentType: "text/plain",
+
+			isOn:      false,
+			mockURL:   "https://practicum.yandex.ru/",
+			mockHash:  "abc",
+			mockError: nil,
+
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Content-Type must be application/json\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newWrapServer()
+
+			mockUC := s.su.(*MockCaseURL)
+			if tt.isOn {
+				mockUC.On("SetURL", tt.mockURL).Return(tt.mockHash, tt.mockError)
+			}
+
+			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.url))
+			req.Header.Set("Content-Type", tt.contentType)
+			res := httptest.NewRecorder()
+
+			s.JSONHandler(res, req)
+			assert.Equal(t, tt.expectedStatus, res.Code)
+			assert.Equal(t, tt.expectedBody, res.Body.String())
+
+			if tt.isOn {
+				mockUC.AssertExpectations(t)
+			}
+		})
+	}
+}
