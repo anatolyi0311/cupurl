@@ -25,6 +25,9 @@ func main() {
 	defer logger.Sync()
 	sugar = *logger.Sugar()
 
-	s := server.NewServer(cfg, sugar)
+	s, err := server.NewServer(cfg, sugar)
+	if err != nil {
+		sugar.Fatalln(err)
+	}
 	s.Run()
 }

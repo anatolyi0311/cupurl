@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/anatolyi0311/cupurl/internal/config"
 	repo "github.com/anatolyi0311/cupurl/internal/repository"
 )
 
@@ -19,10 +20,14 @@ type Service struct {
 	repo repo.Repository
 }
 
-func NewService() CaseURL {
-	return &Service{
-		repo: repo.NewStorage(),
+func NewService(cfg *config.Config) (CaseURL, error) {
+	repo, err := repo.NewStorage(cfg)
+	if err != nil {
+		return nil, err
 	}
+	return &Service{
+		repo: repo,
+	}, nil
 }
 
 func (s *Service) SetURL(urlTo string) (string, error) {

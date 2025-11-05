@@ -35,15 +35,19 @@ type Server struct {
 	sugar zap.SugaredLogger
 }
 
-func NewServer(cfg *config.Config, sugar zap.SugaredLogger) *Server {
+func NewServer(cfg *config.Config, sugar zap.SugaredLogger) (*Server, error) {
+	su, err := srv.NewService(cfg)
+	if err != nil {
+		return nil, err
+	}
 	server := &Server{
 		cfg:   cfg,
 		route: chi.NewRouter(),
-		su:    srv.NewService(),
+		su:    su,
 		sugar: sugar,
 	}
 	server.router()
-	return server
+	return server, nil
 }
 
 func (s *Server) router() {
