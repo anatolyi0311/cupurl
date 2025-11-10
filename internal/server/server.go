@@ -2,14 +2,20 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/handler"
@@ -33,9 +39,19 @@ type Server struct {
 	route *chi.Mux
 	su    srv.CaseURL
 	sugar zap.SugaredLogger
+	db    *sql.DB
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
+	// initial DB
+	ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+		`localhost`, `video`, `XXXXXXXX`, `video`)
+	db, err := sql.Open("pgx", ps)
+	if err != nil {
+		cfg.Sugar.Fatal(err)
+	}
+	defer db.Close()
+
 	su, err := srv.NewService(cfg)
 	if err != nil {
 		return nil, err
@@ -45,6 +61,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		route: chi.NewRouter(),
 		su:    su,
 		sugar: cfg.Sugar,
+		db:    db,
 	}
 	server.router()
 	return server, nil
@@ -54,6 +71,7 @@ func (s *Server) router() {
 	s.route.Post("/", handler.WithLogging(s.SetURL, s.sugar))
 	s.route.Post("/api/shorten", handler.WithLogging(s.JSONHandler, s.sugar))
 	s.route.Get("/{id}", handler.WithLogging(s.GetURL, s.sugar))
+	s.route.Get("/ping", handler.WithLogging(s.GetConnectWithDB, s.sugar))
 }
 
 func (s *Server) Run() {
@@ -145,4 +163,16 @@ func (s *Server) GetURL(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Location", url)
 	res.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func (s *Server) GetConnectWithDB(res http.ResponseWriter, req *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	if err := s.db.PingContext(ctx); err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+
+	}
+
+	res.WriteHeader(http.StatusOK)
 }

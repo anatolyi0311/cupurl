@@ -21,6 +21,7 @@ type Options struct {
 	Addr        string `env:"SERVER_ADDRESS"`
 	BaseURL     string `env:"BASE_URL"`
 	StorageFile string `env:"FILE_STORAGE_PATH"`
+	AddrDB      string `env:"DATABASE_DSN"`
 }
 
 func NewConfig() (*Config, error) {
@@ -45,9 +46,11 @@ func newOpts() (*Options, error) {
 
 func newOptsEnv() (*Options, error) {
 	/* ... */
+	envs := getEnvVars()
 	envAddr,
 		envBaseURL,
-		envStorageFile := getEnvVars()
+		envStorageFile,
+		addrDB := envs[0], envs[1], envs[2], envs[3]
 
 	storageFileValue := "storage.json"
 	if envStorageFile != "" {
@@ -61,6 +64,7 @@ func newOptsEnv() (*Options, error) {
 					Addr:        envAddr,
 					BaseURL:     envBaseURL,
 					StorageFile: storageFileValue,
+					AddrDB:      addrDB,
 				}, nil
 			}
 		}
@@ -71,15 +75,18 @@ func newOptsEnv() (*Options, error) {
 
 func newOptsFlags() (*Options, error) {
 	/* ... */
+	envs := getEnvVars()
 	envAddr,
 		envBaseURL,
-		envStorageFile := getEnvVars()
+		envStorageFile,
+		addrDB := envs[0], envs[1], envs[2], envs[3]
 
 	storageFileValue := "storage.json"
 
 	var addr = flag.String("a", "localhost:8080", "server host")
 	var baseURL = flag.String("b", "localhost:8080", "value before short URL")
 	var storageFile = flag.String("f", "storage.json", "file for save data")
+	var connectDB = flag.String("d", "", "address to connect with db")
 	flag.Parse()
 
 	addrValue := *addr
@@ -97,6 +104,9 @@ func newOptsFlags() (*Options, error) {
 	if _, err := url.Parse("https://" + baseURLValue); err != nil {
 		return nil, fmt.Errorf("incorrect parametr `-b` %s", baseURLValue)
 	}
+	if connectDB == nil || *connectDB == "" {
+		return nil, fmt.Errorf("incorrect parametr `-d` %s", *connectDB)
+	}
 
 	if !hasShemaURL(baseURLValue) {
 		baseURLValue = "http://" + baseURLValue
@@ -109,18 +119,27 @@ func newOptsFlags() (*Options, error) {
 		storageFileValue = *storageFile
 	}
 
+	connectDBValue := *connectDB
+	if addrDB != "" {
+		connectDBValue = addrDB
+	}
+
 	return &Options{
 		Addr:        addrValue,
 		BaseURL:     baseURLValue,
 		StorageFile: storageFileValue,
+		AddrDB:      connectDBValue,
 	}, nil
 }
 
-func getEnvVars() (string, string, string) {
+func getEnvVars() []string {
 	/* ... */
-	return os.Getenv("SERVER_ADDRESS"),
+	return []string{
+		os.Getenv("SERVER_ADDRESS"),
 		os.Getenv("BASE_URL"),
-		os.Getenv("FILE_STORAGE_PATH")
+		os.Getenv("FILE_STORAGE_PATH"),
+		os.Getenv("FILE_STORAGE_PATH"),
+	}
 }
 
 func hasShemaURL(baseURLValue string) bool {
