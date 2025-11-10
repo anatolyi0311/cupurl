@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
 	repo "github.com/anatolyi0311/cupurl/internal/repository"
@@ -37,7 +38,14 @@ func (s *Service) SetURL(urlTo string) (string, error) {
 	}
 
 	hash := sha256.Sum256([]byte(urlTo))
-	shortHash := fmt.Sprintf("%x", hash[:sizeHash])
+
+	// To unique.
+	now := time.Now()
+	seconds := now.Unix() // Unix timestamp in seconds
+	hash2 := [32]byte{byte(seconds)}
+	combinedHash := append(hash[:], hash2[:]...)
+
+	shortHash := fmt.Sprintf("%x", combinedHash[:sizeHash])
 	err := s.repo.Set(urlTo, shortHash)
 
 	return shortHash, err

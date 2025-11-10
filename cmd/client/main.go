@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -29,7 +30,9 @@ func main() {
 	// заполняем контейнер данными
 	data.Set("url", long)
 	// добавляем HTTP-клиент
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: time.Duration(1_000),
+	}
 	// пишем запрос
 	// запрос методом POST должен, помимо заголовков, содержать тело
 	// тело должно быть источником потокового чтения io.Reader

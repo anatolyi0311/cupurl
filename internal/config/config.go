@@ -6,10 +6,15 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
+var sugar zap.SugaredLogger
+
 type Config struct {
-	Opts *Options
+	Opts  *Options
+	Sugar zap.SugaredLogger
 }
 
 type Options struct {
@@ -24,14 +29,25 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 	return &Config{
-		Opts: opts,
+		Opts:  opts,
+		Sugar: sugar, // logging.
 	}, nil
 }
 
 func newOpts() (*Options, error) {
-	envAddr := os.Getenv("SERVER_ADDRESS")
-	envBaseURL := os.Getenv("BASE_URL")
-	envStorageFile := os.Getenv("FILE_STORAGE_PATH")
+	/* ... */
+	optsEnv, err := newOptsEnv()
+	if err != nil {
+		return newOptsFlags()
+	}
+	return optsEnv, nil
+}
+
+func newOptsEnv() (*Options, error) {
+	/* ... */
+	envAddr,
+		envBaseURL,
+		envStorageFile := getEnvVars()
 
 	storageFileValue := "storage.json"
 	if envStorageFile != "" {
@@ -50,6 +66,17 @@ func newOpts() (*Options, error) {
 		}
 	}
 
+	return nil, fmt.Errorf("error on environment variables")
+}
+
+func newOptsFlags() (*Options, error) {
+	/* ... */
+	envAddr,
+		envBaseURL,
+		envStorageFile := getEnvVars()
+
+	storageFileValue := "storage.json"
+
 	var addr = flag.String("a", "localhost:8080", "server host")
 	var baseURL = flag.String("b", "localhost:8080", "value before short URL")
 	var storageFile = flag.String("f", "storage.json", "file for save data")
@@ -59,7 +86,6 @@ func newOpts() (*Options, error) {
 	if envAddr != "" {
 		addrValue = envAddr
 	}
-
 	baseURLValue := *baseURL
 	if envBaseURL != "" {
 		baseURLValue = envBaseURL
@@ -68,12 +94,11 @@ func newOpts() (*Options, error) {
 	if _, err := url.Parse("https://" + addrValue); err != nil {
 		return nil, fmt.Errorf("incorrect parametr `-a` %s", addrValue)
 	}
-
 	if _, err := url.Parse("https://" + baseURLValue); err != nil {
 		return nil, fmt.Errorf("incorrect parametr `-b` %s", baseURLValue)
 	}
 
-	if !strings.HasPrefix(baseURLValue, "http://") && !strings.HasPrefix(baseURLValue, "https://") {
+	if !hasShemaURL(baseURLValue) {
 		baseURLValue = "http://" + baseURLValue
 	}
 	baseURLValue = strings.TrimSuffix(baseURLValue, "/")
@@ -89,4 +114,17 @@ func newOpts() (*Options, error) {
 		BaseURL:     baseURLValue,
 		StorageFile: storageFileValue,
 	}, nil
+}
+
+func getEnvVars() (string, string, string) {
+	/* ... */
+	return os.Getenv("SERVER_ADDRESS"),
+		os.Getenv("BASE_URL"),
+		os.Getenv("FILE_STORAGE_PATH")
+}
+
+func hasShemaURL(baseURLValue string) bool {
+	/* ... */
+	return strings.HasPrefix(baseURLValue, "http://") ||
+		strings.HasPrefix(baseURLValue, "https://")
 }
