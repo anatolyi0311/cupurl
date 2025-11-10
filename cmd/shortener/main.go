@@ -9,11 +9,9 @@ import (
 	"github.com/anatolyi0311/cupurl/internal/server"
 )
 
+var sugar zap.SugaredLogger
+
 func main() {
-	cfg, err := config.NewConfig()
-	if err != nil {
-		log.Fatalln(err)
-	}
 	// logging.
 	logger, err := zap.NewDevelopment()
 	if err != nil {
@@ -21,10 +19,15 @@ func main() {
 		log.Fatal(err)
 	}
 	defer logger.Sync()
-	sugar := cfg.Sugar
 	sugar = *logger.Sugar()
 
-	s, err := server.NewServer(cfg)
+	// configuration.
+	cfg, err := config.NewConfig(sugar)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	s, err := server.NewServer(cfg, sugar)
 	if err != nil {
 		sugar.Fatalln(err)
 	}

@@ -96,7 +96,7 @@ func TestServerGetURL(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			res := httptest.NewRecorder()
 
-			s.GetURL(res, req)
+			s.GetURLHandler(res, req)
 			assert.Equal(t, tt.expectedStatus, res.Code)
 			if tt.expectedLocation != "" {
 				assert.Equal(t, tt.expectedLocation, res.Header().Get("Location"))
@@ -166,7 +166,7 @@ func TestServerSetURL(t *testing.T) {
 			req.Header.Set("Content-Type", tt.contentType)
 			res := httptest.NewRecorder()
 
-			s.SetURL(res, req)
+			s.SetURLHandler(res, req)
 			assert.Equal(t, tt.expectedStatus, res.Code)
 			assert.Equal(t, tt.expectedBody, res.Body.String())
 
