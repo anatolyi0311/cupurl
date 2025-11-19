@@ -29,6 +29,9 @@ func main() {
 	}
 
 	pgdb, err := db.InitPostgresDB(cfg, sugar)
+	if err != nil {
+		sugar.Fatalln(err)
+	}
 
 	s, err := server.NewServer(cfg, sugar, pgdb)
 	if err != nil {
