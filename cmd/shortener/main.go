@@ -28,10 +28,10 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	pgdb, err := db.InitPostgresDB(cfg, sugar)
-	if err != nil {
-		sugar.Fatalln(err)
-	}
+	pgdb, _ := db.InitPostgresDB(cfg, sugar)
+	// if err != nil {
+	// 	sugar.Fatalln(err)
+	// }
 
 	s, err := server.NewServer(cfg, sugar, pgdb)
 	if err != nil {
