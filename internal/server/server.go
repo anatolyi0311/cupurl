@@ -16,7 +16,6 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
-	"github.com/anatolyi0311/cupurl/internal/config/db"
 	"github.com/anatolyi0311/cupurl/internal/handler"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
 )
@@ -55,7 +54,7 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 	// }
 	// defer db.Close()
 
-	su, err := srv.NewService(cfg, db)
+	su, err := srv.NewService(cfg, db, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +84,7 @@ func (s *Server) Run() {
 		"addrDB", s.cfg.Opts.AddrDB,
 		"hostDB", s.cfg.Opts.HostDB,
 		"portDB", s.cfg.Opts.PortDB,
-		"pathDB", s.cfg.Opts.PathDB,
+		// "pathDB", s.cfg.Opts.PathDB,
 		// "sslmode", s.cfg.Opts.ParamsDB["sslmode"],
 	)
 	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(s.route)); err != nil {
@@ -171,48 +170,6 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Location", url)
 	res.WriteHeader(http.StatusTemporaryRedirect)
-}
-
-func (s *Server) PingDBHandler(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		http.Error(res, "method must be Get", http.StatusBadRequest)
-		return
-	}
-
-	db, err := db.InitPostgresDB(s.cfg, s.logger)
-	if err != nil {
-		s.logger.Infow(
-			"PingDB",
-			"addr", s.cfg.Opts.AddrDB,
-			"msg", err.Error(),
-		)
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer db.Close()
-
-	// // if err := s.db.PingContext(ctx); err != nil {
-	// if err := db.PingContext(ctx); err != nil {
-	// 	http.Error(res, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-	// // s.PingDBHandler(res, req)
-
-	if err := db.Ping(); err != nil {
-		s.logger.Infow(
-			"PingDB",
-			"addrDB", s.cfg.Opts.AddrDB,
-			"msg", err.Error(),
-		)
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	s.logger.Infow(
-		"PingDB",
-		"addrDB", s.cfg.Opts.AddrDB,
-	)
-	res.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) Ping(res http.ResponseWriter, req *http.Request) {

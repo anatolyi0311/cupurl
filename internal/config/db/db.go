@@ -10,53 +10,68 @@ import (
 	"go.uber.org/zap"
 )
 
-func InitPostgresDB(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, error) {
-	// ...
-	u, err := url.Parse(cfg.Opts.AddrDB)
+func InitPostgresClient(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, error) {
+
+	options, err := parseDSN(cfg.Opts.AddrDB)
 	if err != nil {
 		return nil, err
 	}
-
-	// Разбираем host и port
-	// host := u.Hostname()
-	// port := u.Port()
-	host := u.Host
-
-	username := u.User.Username()    // `videos`
-	password, _ := u.User.Password() // `userpassword`
-	// ...
-	dbname := strings.TrimPrefix(u.Path, "/") // `videos`
-	// ...
-	queryParams := u.Query()
-	sslmode := queryParams.Get("sslmode")
-	if sslmode == "" {
-		sslmode = "disable"
-	}
-
-	addr := strings.Split(host, ":")
-	if len(addr) < 2 {
-		addr = []string{"postgres", "5432"}
-	}
-
-	driverName := "postgres" // "pgx"
-	dataSourceName := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		addr[0], addr[1], username, password, dbname, sslmode,
-	)
-	db, err := sql.Open(driverName, dataSourceName)
+	opts := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
+		options[0], options[1], options[2], options[3], options[4], options[5])
+	database, err := sql.Open("postgres", opts)
 	if err != nil {
+		logger.Infow(
+			"host", options[0],
+			"port", options[1],
+			"user", options[2],
+			"dbname", options[3],
+			"sslmode", options[5],
+			"error1", err.Error(),
+		)
 		return nil, err
 	}
-	// defer db.Close()
+
+	err = database.Ping()
+	if err != nil {
+		logger.Infow(
+			"host", options[0],
+			"port", options[1],
+			"user", options[2],
+			"dbname", options[3],
+			"sslmode", options[5],
+			"error2", err.Error(),
+		)
+		return nil, err
+	}
 
 	logger.Infow(
-		"InitDB",
-		"addrDB", cfg.Opts.AddrDB,
-		"pathDB", cfg.Opts.PathDB,
-		"host", host,
-		"dbname", dbname,
-		"sslmode", sslmode,
+		"host", options[0],
+		"port", options[1],
+		"user", options[2],
+		"dbname", options[3],
+		"sslmode", options[5],
 	)
 
-	return db, nil
+	return database, nil
+}
+
+func parseDSN(dsn string) ([6]string, error) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return [6]string{}, fmt.Errorf("failed to parse DSN: %w", err)
+	}
+
+	queryParams := u.Query()
+	sslmode := queryParams.Get("sslmode")
+
+	// Разбираем host и port
+	host := u.Hostname()
+	port := u.Port()
+
+	username := u.User.Username()
+	password, _ := u.User.Password()
+
+	dbname := strings.TrimPrefix(u.Path, "/")
+
+	return [6]string{host, port, username, dbname, password, sslmode}, nil
 }

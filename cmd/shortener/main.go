@@ -29,7 +29,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	pgdb, _ := db.InitPostgresDB(cfg, sugar)
+	pgdb, _ := db.InitPostgresClient(cfg, sugar)
 	// if err != nil {
 	// 	sugar.Fatalln(err)
 	// }

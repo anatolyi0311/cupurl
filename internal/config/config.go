@@ -35,10 +35,10 @@ type Options struct {
 	AddrDB      string `env:"DATABASE_DSN"`
 	HostDB      string
 	PortDB      string
-	UserDB      string
-	NameDB      string
-	PaswDB      string
-	PathDB      string
+	// UserDB      string
+	// NameDB      string
+	// PaswDB      string
+	// PathDB      string
 	// ParamsDB    map[string]string
 }
 
@@ -92,10 +92,10 @@ func newOpts(logger zap.SugaredLogger) (*Options, error) {
 		opts.BaseURL = "http://" + opts.BaseURL
 	}
 	opts.BaseURL = strings.TrimSuffix(opts.BaseURL, "/")
-	logger.Infow(
-		"cfg",
-		"opts", true,
-	)
+	// logger.Infow(
+	// 	"cfg",
+	// 	"opts", true,
+	// )
 	return opts, nil
 }
 

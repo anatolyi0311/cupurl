@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
 )
@@ -36,14 +37,14 @@ type Storage struct {
 	hasFile     bool
 }
 
-func NewStorage(cfg *config.Config, db *sql.DB) (Repository, error) {
+func NewStorage(cfg *config.Config, db *sql.DB, loggger zap.SugaredLogger) (Repository, error) {
 	s := &Storage{
 		cfg:         cfg,
 		db:          db,
 		memoryCache: make(map[string]string),
 		hasFile:     cfg.Opts.StorageFile != "",
 	}
-	err := s.loadFromFile()
+	err := s.loadFromFile(loggger)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +89,7 @@ func (s *Storage) saveToFile() error {
 	return nil
 }
 
-func (s *Storage) loadFromFile() error {
+func (s *Storage) loadFromFile(loggger zap.SugaredLogger) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -97,7 +98,7 @@ func (s *Storage) loadFromFile() error {
 	}
 
 	if _, err := os.Stat(s.cfg.Opts.StorageFile); os.IsNotExist(err) {
-		fmt.Println("File does not exist")
+		loggger.Warn("File does not exist")
 		return nil
 	}
 
@@ -116,7 +117,6 @@ func (s *Storage) loadFromFile() error {
 
 	return nil
 }
-
 func (s *Storage) Ping() error {
 	if s.db == nil {
 		return fmt.Errorf("db is not init")
