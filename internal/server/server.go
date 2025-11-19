@@ -189,6 +189,7 @@ func (s *Server) PingDBHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer db.Close()
 
 	// // if err := s.db.PingContext(ctx); err != nil {
 	// if err := db.PingContext(ctx); err != nil {

@@ -44,7 +44,7 @@ func InitPostgresDB(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, erro
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	// defer db.Close()
 
 	logger.Infow(
 		"InitDB",
