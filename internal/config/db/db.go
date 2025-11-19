@@ -34,6 +34,9 @@ func InitPostgresDB(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, erro
 	}
 
 	addr := strings.Split(host, ":")
+	if len(addr) < 1 {
+		addr = []string{"postgres", "5432"}
+	}
 
 	driverName := "postgres" // "pgx"
 	dataSourceName := fmt.Sprintf(
