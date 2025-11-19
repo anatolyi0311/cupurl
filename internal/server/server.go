@@ -38,10 +38,10 @@ type Server struct {
 	route  *chi.Mux
 	su     srv.CaseURL
 	logger zap.SugaredLogger
-	db     *sql.DB
+	// db     *sql.DB
 }
 
-func NewServer(cfg *config.Config, logger zap.SugaredLogger) (*Server, error) {
+func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Server, error) {
 	// initial DB with sql.Open(driverName, dataSourceName string) (*DB, error)
 	// addrDB := cfg.Opts.AddrDB
 	// driverName := "pgx"
@@ -55,7 +55,7 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger) (*Server, error) {
 	// }
 	// defer db.Close()
 
-	su, err := srv.NewService(cfg)
+	su, err := srv.NewService(cfg, db)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (s *Server) router() {
 	s.route.Post("/", handler.WithLogging(s.SetURLHandler, s.logger))
 	s.route.Post("/api/shorten", handler.WithLogging(s.JSONHandler, s.logger))
 	s.route.Get("/{id}", handler.WithLogging(s.GetURLHandler, s.logger))
-	s.route.Get("/ping", handler.WithLogging(s.PingDBHandler, s.logger))
+	s.route.Get("/ping", handler.WithLogging(s.Ping, s.logger))
 }
 
 func (s *Server) Run() {
@@ -213,4 +213,18 @@ func (s *Server) PingDBHandler(res http.ResponseWriter, req *http.Request) {
 		"addrDB", s.cfg.Opts.AddrDB,
 	)
 	res.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) Ping(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(res, "method must be Get", http.StatusBadRequest)
+		return
+	}
+
+	status := http.StatusOK
+	err := s.su.Ping()
+	if err != nil {
+		status = http.StatusInternalServerError
+	}
+	res.WriteHeader(status)
 }

@@ -15,6 +15,10 @@ type MockRepo struct {
 	mock.Mock
 }
 
+func (m *MockRepo) Ping() error {
+	return fmt.Errorf("")
+}
+
 func newWrapService() *Service {
 	r := &MockRepo{}
 	return &Service{

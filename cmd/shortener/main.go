@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
+	"github.com/anatolyi0311/cupurl/internal/config/db"
 	"github.com/anatolyi0311/cupurl/internal/server"
 )
 
@@ -27,7 +28,9 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	s, err := server.NewServer(cfg, sugar)
+	pgdb, err := db.InitPostgresDB(cfg, sugar)
+
+	s, err := server.NewServer(cfg, sugar, pgdb)
 	if err != nil {
 		sugar.Fatalln(err)
 	}

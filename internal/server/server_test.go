@@ -18,6 +18,10 @@ type MockCaseURL struct {
 	mock.Mock
 }
 
+func (m *MockCaseURL) Ping() error {
+	return fmt.Errorf("")
+}
+
 func newWrapServer() *Server {
 	cfg := &config.Config{
 		Opts: &config.Options{
