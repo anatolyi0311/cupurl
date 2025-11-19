@@ -8,6 +8,7 @@ import (
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/config/db"
 	"github.com/anatolyi0311/cupurl/internal/server"
+	"github.com/anatolyi0311/cupurl/migrations"
 )
 
 var sugar zap.SugaredLogger
@@ -32,6 +33,17 @@ func main() {
 	// if err != nil {
 	// 	sugar.Fatalln(err)
 	// }
+
+	sugar.Info("Running migrations...")
+	err = migrations.Up(pgdb)
+	if err != nil {
+		sugar.Warn(err)
+	}
+	defer func() {
+		migrations.Down(pgdb)
+		sugar.Info("Migrations down")
+	}()
+	sugar.Info("Migrations applied successfully")
 
 	s, err := server.NewServer(cfg, sugar, pgdb)
 	if err != nil {

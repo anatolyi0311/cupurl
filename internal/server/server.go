@@ -86,7 +86,7 @@ func (s *Server) Run() {
 		"hostDB", s.cfg.Opts.HostDB,
 		"portDB", s.cfg.Opts.PortDB,
 		"pathDB", s.cfg.Opts.PathDB,
-		"sslmode", s.cfg.Opts.ParamsDB["sslmode"],
+		// "sslmode", s.cfg.Opts.ParamsDB["sslmode"],
 	)
 	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(s.route)); err != nil {
 		log.Fatalln(err)

@@ -39,7 +39,7 @@ type Options struct {
 	NameDB      string
 	PaswDB      string
 	PathDB      string
-	ParamsDB    map[string]string
+	// ParamsDB    map[string]string
 }
 
 func NewConfig(logger zap.SugaredLogger) (*Config, error) {
@@ -60,7 +60,7 @@ func newOpts(logger zap.SugaredLogger) (*Options, error) {
 	}
 	var addr = flag.String("a", "localhost:8080", "server host")
 	var baseURL = flag.String("b", "localhost:8080", "value before short URL")
-	var storageFile = flag.String("f", "storage.json", "file for save data")
+	var storageFile = flag.String("f", "", "file for save data") // storage.json
 	var psqlHost = flag.String("d", "", "psql data")
 	flag.Parse()
 
@@ -70,7 +70,7 @@ func newOpts(logger zap.SugaredLogger) (*Options, error) {
 	if opts.BaseURL == "" {
 		opts.BaseURL = *baseURL
 	}
-	if opts.StorageFile == "storage.json" {
+	if opts.StorageFile == "" { // storage.json
 		opts.StorageFile = *storageFile
 	}
 	if opts.AddrDB == "" {
@@ -118,7 +118,7 @@ func parseEnv() (*Options, bool) {
 		envAddrDB := envs[0], envs[1], envs[2], envs[3]
 
 	opts := &Options{
-		StorageFile: "storage.json",
+		// StorageFile: "storage.json",
 	}
 	if envStorageFile != "" {
 		opts.StorageFile = envStorageFile
