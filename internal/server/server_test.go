@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
+	"github.com/anatolyi0311/cupurl/internal/model"
 )
 
 // Mock для use case
@@ -20,6 +21,10 @@ type MockCaseURL struct {
 
 func (m *MockCaseURL) Ping() error {
 	return fmt.Errorf("")
+}
+
+func (m *MockCaseURL) SetArrayURL([]model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
+	return make([]model.SetArrayURLResponse, 0), fmt.Errorf("")
 }
 
 func newWrapServer() *Server {

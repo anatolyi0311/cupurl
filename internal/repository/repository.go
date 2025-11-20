@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,15 +12,18 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
+
 	"go.uber.org/zap"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
+	"github.com/anatolyi0311/cupurl/internal/model"
 )
 
 type Repository interface {
 	Get(hash string) (string, error)
 	Set(url, hash string) error
 	Ping() error
+	SetArrayURL(req []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error)
 }
 
 type URLRecord struct {
@@ -37,14 +41,14 @@ type Storage struct {
 	hasFile     bool
 }
 
-func NewStorage(cfg *config.Config, db *sql.DB, loggger zap.SugaredLogger) (Repository, error) {
+func NewStorage(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (Repository, error) {
 	s := &Storage{
 		cfg:         cfg,
 		db:          db,
 		memoryCache: make(map[string]string),
 		hasFile:     cfg.Opts.StorageFile != "",
 	}
-	err := s.loadFromFile(loggger)
+	err := s.loadFromFile(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +93,7 @@ func (s *Storage) saveToFile() error {
 	return nil
 }
 
-func (s *Storage) loadFromFile(loggger zap.SugaredLogger) error {
+func (s *Storage) loadFromFile(logger zap.SugaredLogger) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -98,7 +102,7 @@ func (s *Storage) loadFromFile(loggger zap.SugaredLogger) error {
 	}
 
 	if _, err := os.Stat(s.cfg.Opts.StorageFile); os.IsNotExist(err) {
-		loggger.Warn("File does not exist")
+		logger.Warn("File does not exist")
 		return nil
 	}
 
@@ -117,6 +121,7 @@ func (s *Storage) loadFromFile(loggger zap.SugaredLogger) error {
 
 	return nil
 }
+
 func (s *Storage) Ping() error {
 	if s.db == nil {
 		return fmt.Errorf("db is not init")
@@ -146,6 +151,12 @@ func (s *Storage) getPsql(hash string) (string, error) {
 func (s *Storage) setInFile(url, hash string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if _, exists := lo.Find(s.s, func(record URLRecord) bool {
+		return record.OriginalURL == url
+	}); exists {
+		return nil
+	}
 
 	s.s = append(s.s, URLRecord{
 		UUID:        strconv.Itoa(len(s.s)),
@@ -186,4 +197,89 @@ func (s *Storage) setMemory(url, hash string) error {
 
 	s.memoryCache[hash] = url
 	return nil
+}
+
+func (s *Storage) SetArrayURL(req []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
+	if s.db != nil {
+		return s.setArrayPsql(req)
+	}
+	if s.hasFile {
+		return s.setArrayInFile(req)
+	}
+	return s.setArrayMemory(req)
+}
+
+func (s *Storage) setArrayPsql(req []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
+	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	resp := []model.SetArrayURLResponse{}
+	for _, item := range req {
+		_, err := tx.Exec(querySetURL, item.OriginalURL, item.ShortURL)
+		if err != nil {
+			return nil, err
+		}
+		resp = append(resp, model.SetArrayURLResponse{
+			ID: item.ID,
+			// URL: item.ShortURL,
+			URL: s.cfg.Opts.BaseURL + "/" + item.ShortURL,
+		})
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (s *Storage) setArrayInFile(req []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	resp := []model.SetArrayURLResponse{}
+
+	for _, item := range req {
+		if existingRecord, exists := lo.Find(s.s, func(record URLRecord) bool {
+			return record.OriginalURL == item.OriginalURL
+		}); exists {
+			resp = append(resp, model.SetArrayURLResponse{
+				ID:  item.ID,
+				URL: existingRecord.ShortURL,
+			})
+		} else {
+			newRecord := URLRecord{
+				UUID:        strconv.Itoa(len(s.s)),
+				ShortURL:    item.ShortURL,
+				OriginalURL: item.OriginalURL,
+			}
+			s.s = append(s.s, newRecord)
+			resp = append(resp, model.SetArrayURLResponse{
+				ID:  item.ID,
+				URL: item.ShortURL,
+			})
+		}
+	}
+
+	if err := s.saveToFile(); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (s *Storage) setArrayMemory(req []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
+	resp := []model.SetArrayURLResponse{}
+	for _, item := range req {
+		err := s.setMemory(item.OriginalURL, item.ShortURL)
+		if err != nil {
+			return resp, err
+		}
+		resp = append(resp, model.SetArrayURLResponse{
+			ID:  item.ID,
+			URL: item.ShortURL,
+		})
+	}
+	return resp, nil
 }

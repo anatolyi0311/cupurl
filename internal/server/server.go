@@ -17,6 +17,7 @@ import (
 
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/handler"
+	"github.com/anatolyi0311/cupurl/internal/model"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
 )
 
@@ -74,6 +75,7 @@ func (s *Server) router() {
 	s.route.Post("/api/shorten", handler.WithLogging(s.JSONHandler, s.logger))
 	s.route.Get("/{id}", handler.WithLogging(s.GetURLHandler, s.logger))
 	s.route.Get("/ping", handler.WithLogging(s.Ping, s.logger))
+	s.route.Post("/api/shorten/batch", handler.WithLogging(s.SetArrayURLJson, s.logger))
 }
 
 func (s *Server) Run() {
@@ -184,4 +186,48 @@ func (s *Server) Ping(res http.ResponseWriter, req *http.Request) {
 		status = http.StatusInternalServerError
 	}
 	res.WriteHeader(status)
+}
+
+func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(res, "method must be POST", http.StatusBadRequest)
+		return
+	}
+
+	contentType := req.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(res, "cannot read body", http.StatusBadRequest)
+		return
+	}
+	defer req.Body.Close()
+
+	var request []model.SetArrayURLRequest
+	if err = json.Unmarshal(body, &request); err != nil {
+		// logger.Errorln(err)
+		http.Error(res, "cannot unmarshal body", http.StatusBadRequest)
+		return
+	}
+
+	result, err := s.su.SetArrayURL(request)
+	if err != nil {
+		s.logger.Errorln(err)
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, err := json.Marshal(result)
+	if err != nil {
+		s.logger.Errorln(err)
+		http.Error(res, "cannot marshal body", http.StatusBadRequest)
+		return
+	}
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusCreated)
+	res.Write(response)
 }
