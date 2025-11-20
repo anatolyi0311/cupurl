@@ -75,6 +75,7 @@ func WithLogging(h http.HandlerFunc, sugar zap.SugaredLogger) http.HandlerFunc {
 			sugar.Infoln(
 				"status", responseData.status, // получаем перехваченный код статуса ответа
 				"size", responseData.size, // получаем перехваченный размер ответа
+				"uri", uri,
 			)
 		}
 	}

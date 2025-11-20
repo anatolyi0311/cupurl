@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -54,6 +55,7 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 	// 	logger.Fatal(err)
 	// }
 	// defer db.Close()
+	logger.Infow("Service.New.DB", "db.nil", db == nil)
 
 	su, err := srv.NewService(cfg, db, logger)
 	if err != nil {
@@ -74,7 +76,8 @@ func (s *Server) router() {
 	s.route.Post("/", handler.WithLogging(s.SetURLHandler, s.logger))
 	s.route.Post("/api/shorten", handler.WithLogging(s.JSONHandler, s.logger))
 	s.route.Get("/{id}", handler.WithLogging(s.GetURLHandler, s.logger))
-	s.route.Get("/ping", handler.WithLogging(s.Ping, s.logger))
+	s.route.Get("/", handler.WithLogging(s.GetURLHandler, s.logger))
+	s.route.Get("/ping", handler.WithLogging(s.PingDB, s.logger))
 	s.route.Post("/api/shorten/batch", handler.WithLogging(s.SetArrayURLJson, s.logger))
 }
 
@@ -94,10 +97,10 @@ func (s *Server) Run() {
 	}
 }
 
-func (s *Server) JSONHandler(w http.ResponseWriter, req *http.Request) {
+func (s *Server) JSONHandler(res http.ResponseWriter, req *http.Request) {
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		http.Error(w, "Content-Type must be application/json", http.StatusBadRequest)
+		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
 		return
 	}
 
@@ -108,28 +111,38 @@ func (s *Server) JSONHandler(w http.ResponseWriter, req *http.Request) {
 	// читаем тело запроса
 	_, err := buf.ReadFrom(req.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 	// десериализуем JSON в Visitor
 	if err = json.Unmarshal(buf.Bytes(), &addr); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	hash, err := s.su.SetURL(string(*addr.URL))
+	hash, err := s.su.SetURL(string(*addr.URL), s.logger)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		if errors.Is(err, model.ErrURLAlreadyExists) {
+			hashJSON := model.SetURLJsonResponse{
+				URL: s.cfg.Opts.BaseURL + "/" + hash,
+			}
+			response, _ := json.Marshal(hashJSON)
+			res.Header().Set("Content-Type", "application/json")
+			res.WriteHeader(http.StatusConflict)
+			res.Write(response)
+			return
+		}
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 	resp, err := json.Marshal(ResultURL{Result: s.cfg.Opts.BaseURL + "/" + hash})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	w.Write(resp)
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusCreated)
+	res.Write(resp)
 }
 
 func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
@@ -141,30 +154,74 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
+		s.logger.Infow(
+			"Server.SetURL.err.1",
+			"msg", err.Error(),
+		)
 		http.Error(res, "cannot read body", http.StatusBadRequest)
 		return
 	}
 	defer req.Body.Close()
+	s.logger.Infow(
+		"Server.SetURL",
+		"body", string(body),
+	)
+	status := http.StatusCreated
 
-	hash, err := s.su.SetURL(string(body))
+	hash, err := s.su.SetURL(string(body), s.logger)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
+		s.logger.Infow(
+			"Server.SetURL.err.2",
+			"msg", err.Error(),
+		)
+		if err.Error() != model.ErrURLAlreadyExists.Error() {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err.Error() == model.ErrURLAlreadyExists.Error() {
+			status = http.StatusConflict
+		}
 	}
+	s.logger.Infow(
+		"Server.SetURL",
+		"hash", hash,
+	)
 
 	res.Header().Set("Content-Type", "text/plain")
-	res.WriteHeader(http.StatusCreated)
+	res.WriteHeader(status)
 	res.Write([]byte(s.cfg.Opts.BaseURL + "/" + hash))
 }
 
 func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
+
 	pathURL := chi.URLParam(req, "id")
 	if pathURL == "" {
 		pathURL = req.URL.Path
 	}
+	// if pathURL == "" {
+	// 	if _, err := url.Parse("https://" + req.URL.Host); err == nil {
+	// 		res.Header().Set("Location", "https://"+req.URL.Host+pathURL)
+	// 		res.WriteHeader(http.StatusTemporaryRedirect)
+	// 	}
+	// }
 	hash := strings.TrimPrefix(pathURL, "/")
+	// if pathURL == "/" {
+	// 	hash = pathURL
+	// }
+	s.logger.Infow(
+		"Server.GetURL",
+		"host", req.URL.Host,
+		"port", req.URL.Port(),
+		"path", req.URL.Path,
+		"hash", hash,
+		"pathURL", pathURL,
+	)
+	// if hash == "" {
+	// 	http.Error(res, errors.ErrUnsupported.Error(), http.StatusBadRequest)
+	// 	return
+	// }
 
-	url, err := s.su.GetURL(hash)
+	url, err := s.su.GetURL(hash, s.logger)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
@@ -172,20 +229,6 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Location", url)
 	res.WriteHeader(http.StatusTemporaryRedirect)
-}
-
-func (s *Server) Ping(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		http.Error(res, "method must be Get", http.StatusBadRequest)
-		return
-	}
-
-	status := http.StatusOK
-	err := s.su.Ping()
-	if err != nil {
-		status = http.StatusInternalServerError
-	}
-	res.WriteHeader(status)
 }
 
 func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
@@ -214,7 +257,7 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	result, err := s.su.SetArrayURL(request)
+	result, err := s.su.SetArrayURL(request, s.logger)
 	if err != nil {
 		s.logger.Errorln(err)
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -230,4 +273,18 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusCreated)
 	res.Write(response)
+}
+
+func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(res, "method must be Get", http.StatusBadRequest)
+		return
+	}
+
+	status := http.StatusOK
+	err := s.su.Ping()
+	if err != nil {
+		status = http.StatusInternalServerError
+	}
+	res.WriteHeader(status)
 }

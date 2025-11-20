@@ -11,6 +11,9 @@ import (
 )
 
 func InitPostgresClient(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, error) {
+	if cfg.Opts.AddrDB == "" {
+		return nil, sql.ErrConnDone
+	}
 
 	options, err := parseDSN(cfg.Opts.AddrDB)
 	if err != nil {
@@ -21,6 +24,7 @@ func InitPostgresClient(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, 
 	database, err := sql.Open("postgres", opts)
 	if err != nil {
 		logger.Infow(
+			"db.InitPostgresClient.1",
 			"host", options[0],
 			"port", options[1],
 			"user", options[2],
@@ -34,6 +38,7 @@ func InitPostgresClient(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, 
 	err = database.Ping()
 	if err != nil {
 		logger.Infow(
+			"db.InitPostgresClient.2",
 			"host", options[0],
 			"port", options[1],
 			"user", options[2],
@@ -45,10 +50,12 @@ func InitPostgresClient(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, 
 	}
 
 	logger.Infow(
+		"db.InitPostgresClient.3",
 		"host", options[0],
 		"port", options[1],
 		"user", options[2],
 		"dbname", options[3],
+		"pasw", options[4],
 		"sslmode", options[5],
 	)
 

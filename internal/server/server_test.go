@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/model"
@@ -23,11 +24,13 @@ func (m *MockCaseURL) Ping() error {
 	return fmt.Errorf("")
 }
 
-func (m *MockCaseURL) SetArrayURL([]model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
+func (m *MockCaseURL) SetArrayURL(_ []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error) {
 	return make([]model.SetArrayURLResponse, 0), fmt.Errorf("")
 }
 
 func newWrapServer() *Server {
+	logger, _ := zap.NewDevelopment()
+
 	cfg := &config.Config{
 		Opts: &config.Options{
 			Addr:    "localhost:8080",
@@ -36,17 +39,18 @@ func newWrapServer() *Server {
 	}
 	cu := &MockCaseURL{}
 	return &Server{
-		cfg: cfg,
-		su:  cu,
+		cfg:    cfg,
+		su:     cu,
+		logger: *logger.Sugar(),
 	}
 }
 
-func (m *MockCaseURL) GetURL(hash string) (string, error) {
+func (m *MockCaseURL) GetURL(hash string, logger zap.SugaredLogger) (string, error) {
 	args := m.Called(hash)
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockCaseURL) SetURL(url string) (string, error) {
+func (m *MockCaseURL) SetURL(url string, logger zap.SugaredLogger) (string, error) {
 	args := m.Called(url)
 	return args.String(0), args.Error(1)
 }
