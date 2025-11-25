@@ -32,7 +32,7 @@ func main() {
 	// db.
 	pgdb, err := db.InitPostgresClient(cfg)
 	if err != nil {
-		sugar.Fatalln(err)
+		sugar.Warn(err)
 	}
 
 	// migrations.
