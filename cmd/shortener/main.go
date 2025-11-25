@@ -44,7 +44,7 @@ func main() {
 		sugar.Info("Migrations down")
 	}()
 	sugar.Info("Migrations applied successfully")
-	sugar.Info("DB.nil: ", pgdb == nil, "  err: ", err)
+	// sugar.Info("DB.nil: ", pgdb == nil, "  err: ", err)
 
 	s, err := server.NewServer(cfg, sugar, pgdb)
 	if err != nil {

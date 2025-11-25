@@ -26,7 +26,7 @@ func Up(db *sql.DB, sugar zap.SugaredLogger) error {
 		tx.Rollback()
 		return err
 	}
-	sugar.Info("DB.Up.3 ", db == nil)
+	// sugar.Info("DB.Up.3 ", db == nil)
 
 	return nil
 }
@@ -53,7 +53,7 @@ func Down(db *sql.DB, sugar zap.SugaredLogger) error {
 		tx.Rollback()
 		return err
 	}
-	sugar.Info("DB.Down.3 ", db == nil)
+	// sugar.Info("DB.Down.3 ", db == nil)
 
 	return nil
 }

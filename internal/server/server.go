@@ -55,7 +55,6 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 	// 	logger.Fatal(err)
 	// }
 	// defer db.Close()
-	logger.Infow("Service.New.DB", "db.nil", db == nil)
 
 	su, err := srv.NewService(cfg, db, logger)
 	if err != nil {
@@ -154,26 +153,15 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		s.logger.Infow(
-			"Server.SetURL.err.1",
-			"msg", err.Error(),
-		)
 		http.Error(res, "cannot read body", http.StatusBadRequest)
 		return
 	}
 	defer req.Body.Close()
-	s.logger.Infow(
-		"Server.SetURL",
-		"body", string(body),
-	)
+
 	status := http.StatusCreated
 
 	hash, err := s.su.SetURL(string(body), s.logger)
 	if err != nil {
-		s.logger.Infow(
-			"Server.SetURL.err.2",
-			"msg", err.Error(),
-		)
 		if err.Error() != model.ErrURLAlreadyExists.Error() {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
@@ -182,10 +170,6 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 			status = http.StatusConflict
 		}
 	}
-	s.logger.Infow(
-		"Server.SetURL",
-		"hash", hash,
-	)
 
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(status)
@@ -208,14 +192,7 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	// if pathURL == "/" {
 	// 	hash = pathURL
 	// }
-	s.logger.Infow(
-		"Server.GetURL",
-		"host", req.URL.Host,
-		"port", req.URL.Port(),
-		"path", req.URL.Path,
-		"hash", hash,
-		"pathURL", pathURL,
-	)
+
 	// if hash == "" {
 	// 	http.Error(res, errors.ErrUnsupported.Error(), http.StatusBadRequest)
 	// 	return

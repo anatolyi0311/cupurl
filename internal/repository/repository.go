@@ -50,70 +50,28 @@ func NewStorage(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (Repos
 	}
 	err := s.loadFromFile(logger)
 	if err != nil {
-		logger.Infow(
-			"Storage.NewStorage.1",
-			"err", err,
-		)
 		return nil, err
 	}
-	logger.Infow(
-		"Storage.NewStorage.2",
-		"s.hasFile", s.hasFile,
-		"db", s.db,
-	)
 	return s, nil
 }
 
 func (s *Storage) Get(hash string, logger zap.SugaredLogger) (string, error) {
-	logger.Infow(
-		"Storage.Get",
-		"hash", hash,
-		"db", s.db,
-		"file", s.hasFile,
-	)
 	if s.db != nil {
-		logger.Infow(
-			"Storage.Get.1",
-			"hash", hash,
-		)
 		return s.getPsql(hash)
 	}
 	if s.hasFile {
-		logger.Infow(
-			"Storage.Get.2",
-			"hash", hash,
-		)
 		return s.getFromFile(hash, logger)
 	}
 	return s.getMemory(hash, logger)
 }
 
 func (s *Storage) Set(url, hash string, logger zap.SugaredLogger) (string, error) {
-	logger.Infow(
-		"Storage.Set",
-		"url", url,
-		"hash", hash,
-		"db", s.db,
-		"file", s.hasFile,
-	)
 	if s.db != nil {
-		logger.Infow(
-			"Storage.Set.1",
-			"hash", hash,
-		)
 		return s.setPsql(url, hash, logger)
 	}
 	if s.hasFile {
-		logger.Infow(
-			"Storage.Set.2",
-			"hash", hash,
-		)
 		return s.setInFile(url, hash, logger)
 	}
-	logger.Infow(
-		"Storage.Set.3",
-		"hash", hash,
-	)
 	return s.setMemory(url, hash, logger)
 }
 
@@ -132,12 +90,6 @@ func (s *Storage) saveToFile(logger zap.SugaredLogger) error {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
-	logger.Infow(
-		"Storage.saveToFile",
-		"data", string(data),
-		"file", s.cfg.Opts.StorageFile,
-	)
-
 	return nil
 }
 
@@ -148,11 +100,6 @@ func (s *Storage) loadFromFile(logger zap.SugaredLogger) error {
 	if !s.hasFile {
 		return nil
 	}
-
-	logger.Infow(
-		"Storage.loadFromFile",
-		"file", s.cfg.Opts.StorageFile,
-	)
 
 	if _, err := os.Stat(s.cfg.Opts.StorageFile); os.IsNotExist(err) {
 		logger.Warn("File does not exist")
@@ -193,11 +140,6 @@ func (s *Storage) setPsql(url, hash string, logger zap.SugaredLogger) (string, e
 	if err != nil {
 		return "", err
 	}
-	logger.Infow(
-		"Storage.setPsql",
-		"hash", hash,
-		"rowsAffected", rowsAffected,
-	)
 
 	if rowsAffected == 0 {
 		return hash, model.ErrURLAlreadyExists
@@ -228,10 +170,6 @@ func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (string,
 		return record.OriginalURL == url
 	}); exists {
 		existingShortURL, _ := s.getFromFile(hash, logger)
-		logger.Infow(
-			"Storage.setInFile.1",
-			"existingShortURL", existingShortURL,
-		)
 		return existingShortURL, model.ErrURLAlreadyExists
 	}
 
@@ -241,11 +179,6 @@ func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (string,
 		OriginalURL: url,
 	})
 	err := s.saveToFile(logger)
-	logger.Infow(
-		"Storage.setInFile.2",
-		"ShortURL", hash,
-		"OriginalURL", url,
-	)
 
 	return "", err
 }
@@ -253,11 +186,6 @@ func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (string,
 func (s *Storage) getFromFile(hash string, logger zap.SugaredLogger) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
-	logger.Infow(
-		"Storage.getFromFile",
-		"hash ", hash,
-	)
 
 	if hash == "" {
 		item, exist := lo.Find(s.s, func(item URLRecord) bool {
@@ -286,28 +214,20 @@ func (s *Storage) getMemory(hash string, logger zap.SugaredLogger) (string, erro
 	if hash == "/" || hash == "" {
 		for key, val := range s.memoryCache {
 			if val != "" {
-				// s.memoryCache[key] = ""
 				delete(s.memoryCache, key)
-				logger.Infow(
-					"Storage.getMemory.1",
-					"hash", hash,
-					"key", key,
-					"url", val,
-					"s.memoryCache", s.memoryCache,
-				)
+				// logger.Infow(
+				// 	"Storage.getMemory.1",
+				// 	"hash", hash,
+				// 	"key", key,
+				// 	"url", val,
+				// 	"s.memoryCache", s.memoryCache,
+				// )
 				return val, nil
 			}
 		}
 	}
 
 	url, exist := s.memoryCache[hash]
-	logger.Infow(
-		"Storage.getMemory.2",
-		"hash", hash,
-		"url", url,
-		"exist", exist,
-		"s.memoryCache", s.memoryCache,
-	)
 	if !exist {
 		return "", fmt.Errorf("%s not found", hash)
 	}
@@ -321,22 +241,10 @@ func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger) (string,
 
 	if _, exist := s.memoryCache[hash]; exist {
 		existingShortURL, _ := s.getMemory(hash, logger)
-
-		logger.Infow(
-			"Storage.SetMemory.1",
-			"exist", exist,
-			"existingShortURL", existingShortURL,
-		)
 		return existingShortURL, model.ErrURLAlreadyExists
 	}
 
 	s.memoryCache[hash] = url
-
-	logger.Infow(
-		"Storage.SetMemory",
-		"hash", hash,
-		"url", url,
-	)
 
 	return "", nil
 }
@@ -365,8 +273,7 @@ func (s *Storage) setArrayPsql(req []model.SetArrayURLRequest, logger zap.Sugare
 			return nil, err
 		}
 		resp = append(resp, model.SetArrayURLResponse{
-			ID: item.ID,
-			// URL: item.ShortURL,
+			ID:  item.ID,
 			URL: s.cfg.Opts.BaseURL + "/" + item.ShortURL,
 		})
 	}

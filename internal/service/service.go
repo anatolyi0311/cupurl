@@ -32,18 +32,8 @@ func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseU
 	repo, err := repo.NewStorage(cfg, db, logger)
 
 	if err != nil {
-		logger.Infow(
-			"Service.New.1",
-			"err", err.Error(),
-		)
-
 		return nil, err
 	}
-	logger.Infow(
-		"Service.New.2",
-		"db", db,
-		"repo", repo,
-	)
 
 	return &Service{
 		repo: repo,
@@ -51,16 +41,12 @@ func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseU
 }
 
 func (s *Service) SetURL(urlTo string, logger zap.SugaredLogger) (string, error) {
-	logger.Infow(
-		"Service.SetURL",
-		"url.hash", urlTo,
-	)
 
 	urlTo = strings.TrimSpace(urlTo)
 	if urlTo == "" {
 		logger.Infow(
-			"Service.SetURL.1",
-			"url.hash", urlTo,
+			"Service.SetURL",
+			"url.hash.empty", urlTo,
 		)
 		// return "", fmt.Errorf("incorrect url")
 	}
@@ -75,20 +61,11 @@ func (s *Service) SetURL(urlTo string, logger zap.SugaredLogger) (string, error)
 
 	shortHash := fmt.Sprintf("%x", combinedHash[:sizeHash])
 	shortHash, err := s.repo.Set(urlTo, shortHash, logger)
-	logger.Infow(
-		"Service.SetURL.2",
-		"hash", hash,
-		"shortHash", shortHash,
-	)
+
 	return shortHash, err
 }
 
 func (s *Service) GetURL(hash string, logger zap.SugaredLogger) (string, error) {
-	logger.Infow(
-		"Service.GetURL",
-		"hash", hash,
-	)
-
 	hash = strings.TrimSpace(hash)
 	// if hash == "" {
 	// 	return "", fmt.Errorf("incorrect id")
