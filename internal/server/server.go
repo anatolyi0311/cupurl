@@ -1,0 +1,267 @@
+package server
+
+import (
+	"bytes"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+
+	// _ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/lib/pq"
+
+	"github.com/anatolyi0311/cupurl/internal/config"
+	"github.com/anatolyi0311/cupurl/internal/handler"
+	"github.com/anatolyi0311/cupurl/internal/model"
+	srv "github.com/anatolyi0311/cupurl/internal/service"
+)
+
+const (
+	addr = "localhost:8080"
+)
+
+type ResultURL struct {
+	Result string `json:"result" doc:"result"`
+}
+
+type URL struct {
+	URL *string `json:"url"`
+}
+
+type Server struct {
+	cfg    *config.Config
+	route  *chi.Mux
+	su     srv.CaseURL
+	logger zap.SugaredLogger
+	// db     *sql.DB
+}
+
+func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Server, error) {
+	// initial DB with sql.Open(driverName, dataSourceName string) (*DB, error)
+	// addrDB := cfg.Opts.AddrDB
+	// driverName := "pgx"
+	// dataSourceName := fmt.Sprintf(
+	// 	"host=%s user=%s password=%s dbname=%s sslmode=disable",
+	// 	addrDB, `videos`, `userpassword`, `videos`,
+	// )
+	// db, err := sql.Open(driverName, dataSourceName)
+	// if err != nil {
+	// 	logger.Fatal(err)
+	// }
+	// defer db.Close()
+
+	su, err := srv.NewService(cfg, db, logger)
+	if err != nil {
+		return nil, err
+	}
+	server := &Server{
+		cfg:    cfg,
+		route:  chi.NewRouter(),
+		su:     su,
+		logger: logger,
+		// db:     db,
+	}
+	server.router()
+	return server, nil
+}
+
+func (s *Server) router() {
+	s.route.Post("/", handler.WithLogging(s.SetURLHandler, s.logger))
+	s.route.Post("/api/shorten", handler.WithLogging(s.SetJSONHandler, s.logger))
+	s.route.Get("/{id}", handler.WithLogging(s.GetURLHandler, s.logger))
+	s.route.Get("/", handler.WithLogging(s.GetURLHandler, s.logger))
+	s.route.Get("/ping", handler.WithLogging(s.PingDB, s.logger))
+	s.route.Post("/api/shorten/batch", handler.WithLogging(s.SetArrayURLJson, s.logger))
+}
+
+func (s *Server) Run() {
+	s.logger.Infow(
+		"Starting server",
+		"addr", s.cfg.Opts.Addr,
+		"base", s.cfg.Opts.BaseURL,
+		"addrDB", s.cfg.Opts.AddrDB,
+		"hostDB", s.cfg.Opts.HostDB,
+		"portDB", s.cfg.Opts.PortDB,
+		// "pathDB", s.cfg.Opts.PathDB,
+		// "sslmode", s.cfg.Opts.ParamsDB["sslmode"],
+	)
+	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(s.route)); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
+	contentType := req.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
+		return
+	}
+
+	// id := req.URL.Query().Get("url")
+
+	var addr URL
+	var buf bytes.Buffer
+	// читаем тело запроса
+	_, err := buf.ReadFrom(req.Body)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	// десериализуем JSON в Visitor
+	if err = json.Unmarshal(buf.Bytes(), &addr); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	hash, err := s.su.SetURL(string(*addr.URL), s.logger)
+	if err != nil {
+		if errors.Is(err, model.ErrURLAlreadyExists) {
+			hashJSON := model.SetURLJsonResponse{
+				URL: s.cfg.Opts.BaseURL + "/" + hash,
+			}
+			response, _ := json.Marshal(hashJSON)
+			res.Header().Set("Content-Type", "application/json")
+			res.WriteHeader(http.StatusConflict)
+			res.Write(response)
+			return
+		}
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	resp, err := json.Marshal(ResultURL{Result: s.cfg.Opts.BaseURL + "/" + hash})
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusCreated)
+	res.Write(resp)
+}
+
+func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
+	contentType := req.Header.Get("Content-Type")
+	if contentType != "text/plain" {
+		http.Error(res, "Content-Type must be text/plain", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(res, "cannot read body", http.StatusBadRequest)
+		return
+	}
+	defer req.Body.Close()
+
+	status := http.StatusCreated
+
+	hash, err := s.su.SetURL(string(body), s.logger)
+	if err != nil {
+		if errors.Is(err, model.ErrURLAlreadyExists) {
+			status = http.StatusConflict
+		}
+		if status != http.StatusConflict {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	res.Header().Set("Content-Type", "text/plain")
+	res.WriteHeader(status)
+	res.Write([]byte(s.cfg.Opts.BaseURL + "/" + hash))
+}
+
+func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
+
+	pathURL := chi.URLParam(req, "id")
+	if pathURL == "" {
+		pathURL = req.URL.Path
+	}
+	// if pathURL == "" {
+	// 	if _, err := url.Parse("https://" + req.URL.Host); err == nil {
+	// 		res.Header().Set("Location", "https://"+req.URL.Host+pathURL)
+	// 		res.WriteHeader(http.StatusTemporaryRedirect)
+	// 	}
+	// }
+	hash := strings.TrimPrefix(pathURL, "/")
+	// if pathURL == "/" {
+	// 	hash = pathURL
+	// }
+
+	// if hash == "" {
+	// 	http.Error(res, errors.ErrUnsupported.Error(), http.StatusBadRequest)
+	// 	return
+	// }
+
+	url, err := s.su.GetURL(hash, s.logger)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	res.Header().Set("Location", url)
+	res.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(res, "method must be POST", http.StatusBadRequest)
+		return
+	}
+
+	contentType := req.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		http.Error(res, "cannot read body", http.StatusBadRequest)
+		return
+	}
+	defer req.Body.Close()
+
+	var request []model.SetArrayURLRequest
+	if err = json.Unmarshal(body, &request); err != nil {
+		// logger.Errorln(err)
+		http.Error(res, "cannot unmarshal body", http.StatusBadRequest)
+		return
+	}
+
+	result, err := s.su.SetArrayURL(request, s.logger)
+	if err != nil {
+		s.logger.Errorln(err)
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, err := json.Marshal(result)
+	if err != nil {
+		s.logger.Errorln(err)
+		http.Error(res, "cannot marshal body", http.StatusBadRequest)
+		return
+	}
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusCreated)
+	res.Write(response)
+}
+
+func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(res, "method must be Get", http.StatusBadRequest)
+		return
+	}
+
+	status := http.StatusOK
+	err := s.su.Ping()
+	if err != nil {
+		status = http.StatusInternalServerError
+	}
+	res.WriteHeader(status)
+}
