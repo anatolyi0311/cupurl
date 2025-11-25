@@ -248,7 +248,7 @@ func TestServerJSONHandler(t *testing.T) {
 			req.Header.Set("Content-Type", tt.contentType)
 			res := httptest.NewRecorder()
 
-			s.JSONHandler(res, req)
+			s.SetJSONHandler(res, req)
 			assert.Equal(t, tt.expectedStatus, res.Code)
 			assert.Equal(t, tt.expectedBody, res.Body.String())
 

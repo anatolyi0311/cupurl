@@ -11,10 +11,10 @@ import (
 	"github.com/anatolyi0311/cupurl/migrations"
 )
 
-var sugar zap.SugaredLogger
-
 func main() {
+
 	// logging.
+	var sugar zap.SugaredLogger
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		// вызываем панику, если ошибка
@@ -29,11 +29,13 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	// db.
 	pgdb, _ := db.InitPostgresClient(cfg, sugar)
 	// if err != nil {
 	// 	sugar.Fatalln(err)
 	// }
 
+	// migrations.
 	sugar.Info("Running migrations...")
 	err = migrations.Up(pgdb, sugar)
 	if err != nil {
@@ -45,6 +47,7 @@ func main() {
 	}()
 	sugar.Info("Migrations applied successfully")
 
+	// server.
 	s, err := server.NewServer(cfg, sugar, pgdb)
 	if err != nil {
 		sugar.Fatalln(err)

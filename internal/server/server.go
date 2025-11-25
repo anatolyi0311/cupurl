@@ -73,7 +73,7 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 
 func (s *Server) router() {
 	s.route.Post("/", handler.WithLogging(s.SetURLHandler, s.logger))
-	s.route.Post("/api/shorten", handler.WithLogging(s.JSONHandler, s.logger))
+	s.route.Post("/api/shorten", handler.WithLogging(s.SetJSONHandler, s.logger))
 	s.route.Get("/{id}", handler.WithLogging(s.GetURLHandler, s.logger))
 	s.route.Get("/", handler.WithLogging(s.GetURLHandler, s.logger))
 	s.route.Get("/ping", handler.WithLogging(s.PingDB, s.logger))
@@ -96,7 +96,7 @@ func (s *Server) Run() {
 	}
 }
 
-func (s *Server) JSONHandler(res http.ResponseWriter, req *http.Request) {
+func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
@@ -162,12 +162,12 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	hash, err := s.su.SetURL(string(body), s.logger)
 	if err != nil {
-		if err.Error() != model.ErrURLAlreadyExists.Error() {
+		if errors.Is(err, model.ErrURLAlreadyExists) {
+			status = http.StatusConflict
+		}
+		if status != http.StatusConflict {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
-		}
-		if err.Error() == model.ErrURLAlreadyExists.Error() {
-			status = http.StatusConflict
 		}
 	}
 
