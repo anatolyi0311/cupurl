@@ -3,13 +3,11 @@ package service
 import (
 	// "crypto/sha256"
 
-	"database/sql"
+	"crypto/sha256"
 	"fmt"
 	"testing"
 
-	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/model"
-	"github.com/anatolyi0311/cupurl/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -19,81 +17,74 @@ const maskURL = "maskURL"
 
 type MockRepo struct {
 	mock.Mock
+	logger *zap.SugaredLogger
 }
 
 func (m *MockRepo) Ping() error {
 	return fmt.Errorf("")
 }
 
-func newWrapService() *Service {
-	// r := &MockRepo{}
-	db := &sql.DB{}
-	_ = db
-	logger, _ := zap.NewDevelopment()
-
-	rs, err := repository.NewStorage(&config.Config{Opts: &config.Options{StorageFile: ""}}, nil, *logger.Sugar())
-	if err != nil {
-		return &Service{
-			&repository.Storage{},
-		}
-	}
-	return &Service{
-		repo: rs, // r
-	}
-}
-
-func (m *MockRepo) Get(hash string, logger zap.SugaredLogger) (string, error) {
+func (m *MockRepo) Get(hash string, _ zap.SugaredLogger) (string, error) {
 	args := m.Called(hash)
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockRepo) Set(url, hash string, logger zap.SugaredLogger) (string, error) {
+func (m *MockRepo) Set(url, hash string, _ zap.SugaredLogger) (string, error) {
 	args := m.Called(url, hash)
-	return "", args.Error(0)
+	return args.String(0), args.Error(1)
 }
 
-func (m *MockRepo) SetArrayURL(_ []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error) {
+func (m *MockRepo) SetArrayURL(_ []model.SetArrayURLRequest, _ zap.SugaredLogger) ([]model.SetArrayURLResponse, error) {
 	return make([]model.SetArrayURLResponse, 0), fmt.Errorf("")
 }
 
+func newWrapService() *Service {
+	logger, _ := zap.NewDevelopment()
+	r := MockRepo{
+		logger: logger.Sugar(),
+	}
+	return &Service{
+		repo: &r,
+	}
+}
+
 func TestServiceSetURL(t *testing.T) {
-	// hash := sha256.Sum256([]byte(maskURL))
+	hashMask := sha256.Sum256([]byte(maskURL))
+	hashEmpty := sha256.Sum256([]byte(""))
 	tests := []struct {
 		name     string
 		url      string
 		wantHash string
 		wantErr  error
 		repoIsOn bool
-		mockHash string
 	}{
-		// {
-		// 	name:     "success set",
-		// 	url:      maskURL,
-		// 	wantHash: fmt.Sprintf("%x", hash[:sizeHash]),
-		// 	wantErr:  nil,
-		// 	repoIsOn: true,
-		// 	mockHash: fmt.Sprintf("%x", hash[:sizeHash]),
-		// },
+		{
+			name:     "success set",
+			url:      maskURL,
+			wantHash: fmt.Sprintf("%x", hashMask[:sizeHash]),
+			wantErr:  nil,
+			repoIsOn: true,
+		},
 		{
 			name:     "empty url",
 			url:      "",
-			wantHash: "",
-			wantErr:  nil, // fmt.Errorf("incorrect url"),
-			repoIsOn: false,
+			wantHash: fmt.Sprintf("%x", hashEmpty[:sizeHash]),
+			wantErr:  nil,
+			repoIsOn: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// ..1.
 			s := newWrapService()
-			// mockRepo := s.repo.(*MockRepo)
-			// mockRepo := s.repo.(*repository.Storage)
-
-			// if tt.repoIsOn {
-			// 	mockRepo.On("Set", tt.url, tt.mockHash).Return(nil)
-			// }
-			logger, _ := zap.NewDevelopment()
-			gotHash, err := s.SetURL(tt.url, *logger.Sugar())
-
+			// ..2.
+			mockRepo := s.repo.(*MockRepo)
+			if tt.repoIsOn {
+				mockRepo.On("Set", tt.url, tt.wantHash).Return(tt.wantHash, tt.wantErr)
+			}
+			// ..3.
+			gotHash, err := s.SetURL(tt.url, *mockRepo.logger)
+			// ..4.
 			assert.Equal(t, tt.wantHash, gotHash)
 			assert.Equal(t, tt.wantErr, err)
 		})
@@ -101,42 +92,41 @@ func TestServiceSetURL(t *testing.T) {
 }
 
 func TestServiceGetURL(t *testing.T) {
-	// hash := sha256.Sum256([]byte(maskURL))
+	hash := sha256.Sum256([]byte(maskURL))
 	tests := []struct {
 		name     string
-		hash     string
+		wantHash string
 		wantURL  string
 		wantErr  error
 		repoIsOn bool
-		mockHash string
 	}{
-		// {
-		// 	name:     "success get",
-		// 	hash:     fmt.Sprintf("%x", hash[:sizeHash]),
-		// 	wantURL:  maskURL,
-		// 	wantErr:  nil,
-		// 	repoIsOn: true,
-		// 	mockHash: fmt.Sprintf("%x", hash[:sizeHash]),
-		// },
+		{
+			name:     "success url",
+			wantHash: fmt.Sprintf("%x", hash[:sizeHash]),
+			wantURL:  maskURL,
+			wantErr:  nil,
+			repoIsOn: true,
+		},
 		{
 			name:     "empty url",
-			hash:     "",
+			wantHash: "",
 			wantURL:  "",
-			wantErr:  fmt.Errorf(" not found"), // incorrect id.
-			repoIsOn: false,
+			wantErr:  fmt.Errorf(" not found"),
+			repoIsOn: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// ..1.
 			s := newWrapService()
-			// mockRepo := s.repo.(*MockRepo)
-
-			// if tt.repoIsOn {
-			// 	mockRepo.On("Get", tt.mockHash).Return(tt.wantURL, nil)
-			// }
-			logger, _ := zap.NewDevelopment()
-			gotURL, err := s.GetURL(tt.hash, *logger.Sugar())
-
+			// ..2.
+			mockRepo := s.repo.(*MockRepo)
+			if tt.repoIsOn {
+				mockRepo.On("Get", tt.wantHash).Return(tt.wantURL, tt.wantErr)
+			}
+			// ..3.
+			gotURL, err := s.GetURL(tt.wantHash, *mockRepo.logger)
+			// ..4.
 			assert.Equal(t, tt.wantURL, gotURL)
 			assert.Equal(t, tt.wantErr, err)
 		})
