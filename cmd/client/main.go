@@ -31,7 +31,7 @@ func main() {
 	data.Set("url", long)
 	// добавляем HTTP-клиент
 	client := &http.Client{
-		Timeout: time.Duration(1_000),
+		Timeout: time.Duration(30 * time.Second),
 	}
 	// пишем запрос
 	// запрос методом POST должен, помимо заголовков, содержать тело

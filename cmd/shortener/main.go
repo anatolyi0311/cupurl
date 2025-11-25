@@ -30,19 +30,19 @@ func main() {
 	}
 
 	// db.
-	pgdb, _ := db.InitPostgresClient(cfg, sugar)
-	// if err != nil {
-	// 	sugar.Fatalln(err)
-	// }
+	pgdb, err := db.InitPostgresClient(cfg)
+	if err != nil {
+		sugar.Fatalln(err)
+	}
 
 	// migrations.
 	sugar.Info("Running migrations...")
-	err = migrations.Up(pgdb, sugar)
+	err = migrations.Up(pgdb)
 	if err != nil {
 		sugar.Warn(err)
 	}
 	defer func() {
-		migrations.Down(pgdb, sugar)
+		migrations.Down(pgdb)
 		sugar.Info("Migrations down")
 	}()
 	sugar.Info("Migrations applied successfully")
