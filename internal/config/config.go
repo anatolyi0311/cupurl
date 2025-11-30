@@ -33,6 +33,7 @@ type Options struct {
 	BaseURL     string `env:"BASE_URL"`
 	StorageFile string `env:"FILE_STORAGE_PATH"`
 	AddrDB      string `env:"DATABASE_DSN"`
+	SecretKey   string `env:"SECRET_KEY"`
 	HostDB      string
 	PortDB      string
 	// UserDB      string
@@ -52,7 +53,7 @@ func NewConfig(logger zap.SugaredLogger) (*Config, error) {
 	}, nil
 }
 
-func newOpts(logger zap.SugaredLogger) (*Options, error) {
+func newOpts(_ zap.SugaredLogger) (*Options, error) {
 	/* ... */
 	opts, ok := parseEnv()
 	if ok {
@@ -62,6 +63,8 @@ func newOpts(logger zap.SugaredLogger) (*Options, error) {
 	var baseURL = flag.String("b", "localhost:8080", "value before short URL")
 	var storageFile = flag.String("f", "", "file for save data") // storage.json
 	var psqlHost = flag.String("d", "", "psql data")
+	// var secretKey = flag.String("sk", "", "secret key")
+	// _ = secretKey
 	flag.Parse()
 
 	if opts.Addr == "" {
@@ -106,6 +109,7 @@ func getEnvVars() []string {
 		os.Getenv("BASE_URL"),
 		os.Getenv("FILE_STORAGE_PATH"),
 		os.Getenv("DATABASE_DSN"),
+		os.Getenv("SECRET_KEY"),
 	}
 }
 

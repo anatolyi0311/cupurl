@@ -16,6 +16,7 @@ type Repository interface {
 	Set(url, hash string, logger zap.SugaredLogger) (string, error)
 	Ping() error
 	SetArrayURL(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error)
+	GetArray(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error)
 }
 
 type URLRecord struct {
@@ -55,6 +56,16 @@ func (s *Storage) Get(hash string, logger zap.SugaredLogger) (string, error) {
 		return s.getFromFile(hash, logger)
 	}
 	return s.getMemory(hash, logger)
+}
+
+func (s *Storage) GetArray(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error) {
+	if s.db != nil {
+		return s.getArrayPsql(logger)
+	}
+	if s.hasFile {
+		return s.getArrayFromFile(logger)
+	}
+	return s.getArrayMemory(logger)
 }
 
 func (s *Storage) Set(url, hash string, logger zap.SugaredLogger) (string, error) {

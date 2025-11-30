@@ -29,6 +29,11 @@ func (m *MockRepo) Get(hash string, _ zap.SugaredLogger) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockRepo) GetArray(_ zap.SugaredLogger) ([]model.GetArrayURLRequest, error) {
+	args := m.Called()
+	return []model.GetArrayURLRequest{model.GetArrayURLRequest{OriginalURL: args.String(0)}}, args.Error(1)
+}
+
 func (m *MockRepo) Set(url, hash string, _ zap.SugaredLogger) (string, error) {
 	args := m.Called(url, hash)
 	return args.String(0), args.Error(1)

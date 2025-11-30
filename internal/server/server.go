@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/handler"
+	"github.com/anatolyi0311/cupurl/internal/jwt"
 	"github.com/anatolyi0311/cupurl/internal/model"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
 )
@@ -40,6 +40,7 @@ type Server struct {
 	su     srv.CaseURL
 	logger zap.SugaredLogger
 	// db     *sql.DB
+	cookie string
 }
 
 func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Server, error) {
@@ -60,12 +61,18 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 	if err != nil {
 		return nil, err
 	}
+	userID := 1
+	setJWT, err := jwt.SetJWT(userID, logger)
+	if err != nil {
+		return nil, err
+	}
 	server := &Server{
 		cfg:    cfg,
 		route:  chi.NewRouter(),
 		su:     su,
 		logger: logger,
 		// db:     db,
+		cookie: setJWT,
 	}
 	server.router()
 	return server, nil
@@ -75,9 +82,9 @@ func (s *Server) router() {
 	s.route.Post("/", handler.WithLogging(s.SetURLHandler, s.logger))
 	s.route.Post("/api/shorten", handler.WithLogging(s.SetJSONHandler, s.logger))
 	s.route.Get("/{id}", handler.WithLogging(s.GetURLHandler, s.logger))
-	s.route.Get("/", handler.WithLogging(s.GetURLHandler, s.logger))
 	s.route.Get("/ping", handler.WithLogging(s.PingDB, s.logger))
 	s.route.Post("/api/shorten/batch", handler.WithLogging(s.SetArrayURLJson, s.logger))
+	s.route.Get("/api/user/urls", handler.WithLogging(s.GetArrayURLJson, s.logger))
 }
 
 func (s *Server) Run() {
@@ -88,8 +95,7 @@ func (s *Server) Run() {
 		"addrDB", s.cfg.Opts.AddrDB,
 		"hostDB", s.cfg.Opts.HostDB,
 		"portDB", s.cfg.Opts.PortDB,
-		// "pathDB", s.cfg.Opts.PathDB,
-		// "sslmode", s.cfg.Opts.ParamsDB["sslmode"],
+		"userID", jwt.GetUserID(s.cookie, s.logger),
 	)
 	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(s.route)); err != nil {
 		log.Fatalln(err)
@@ -97,6 +103,10 @@ func (s *Server) Run() {
 }
 
 func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(res, "method must be POST", http.StatusBadRequest)
+		return
+	}
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
@@ -105,21 +115,36 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 
 	// id := req.URL.Query().Get("url")
 
-	var addr URL
-	var buf bytes.Buffer
-	// читаем тело запроса
-	_, err := buf.ReadFrom(req.Body)
+	// var addr URL
+	// var buf bytes.Buffer
+	// // читаем тело запроса
+	// _, err := buf.ReadFrom(req.Body)
+	// if err != nil {
+	// 	http.Error(res, err.Error(), http.StatusBadRequest)
+	// 	return
+	// }
+	// // десериализуем JSON в Visitor
+	// if err = json.Unmarshal(buf.Bytes(), &addr); err != nil {
+	// 	http.Error(res, err.Error(), http.StatusBadRequest)
+	// 	return
+	// }
+
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(res, "cannot read body", http.StatusBadRequest)
 		return
 	}
-	// десериализуем JSON в Visitor
-	if err = json.Unmarshal(buf.Bytes(), &addr); err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+	defer req.Body.Close()
+
+	var request model.SetURLJsonRequest
+	if err = json.Unmarshal(body, &request); err != nil {
+		s.logger.Errorln(err)
+		http.Error(res, "cannot unmarshal body", http.StatusBadRequest)
 		return
 	}
 
-	hash, err := s.su.SetURL(string(*addr.URL), s.logger)
+	// hash, err := s.su.SetURL(string(*addr.URL), s.logger)
+	hash, err := s.su.SetURL(request.URL, s.logger)
 	if err != nil {
 		if errors.Is(err, model.ErrURLAlreadyExists) {
 			hashJSON := model.SetURLJsonResponse{
@@ -131,14 +156,18 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 			res.Write(response)
 			return
 		}
+		s.logger.Errorln(err)
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	resp, err := json.Marshal(ResultURL{Result: s.cfg.Opts.BaseURL + "/" + hash})
 	if err != nil {
+		s.logger.Errorln(err)
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusCreated)
 	res.Write(resp)
@@ -171,38 +200,47 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	// s.logger.Info("SetURL.shortHash: ", hash, string(body))
+	// cookie := &http.Cookie{
+	// 	HttpOnly: true,
+	// 	Value:    s.cookie,
+	// 	Name:     "access_token",
+	// }
+	// http.SetCookie(res, cookie)
+	res.Header().Set("Authorization", "Bearer "+s.cookie)
+
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(status)
 	res.Write([]byte(s.cfg.Opts.BaseURL + "/" + hash))
 }
 
 func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
+	// authorization := req.Header.Get("Authorization")
+	// if authorization != "" && authorization != "Bearer "+s.cookie {
+	// 	http.Error(res, "authorization fail", http.StatusUnauthorized)
+	// 	return
+	// }
 
 	pathURL := chi.URLParam(req, "id")
 	if pathURL == "" {
 		pathURL = req.URL.Path
 	}
-	// if pathURL == "" {
-	// 	if _, err := url.Parse("https://" + req.URL.Host); err == nil {
-	// 		res.Header().Set("Location", "https://"+req.URL.Host+pathURL)
-	// 		res.WriteHeader(http.StatusTemporaryRedirect)
-	// 	}
-	// }
 	hash := strings.TrimPrefix(pathURL, "/")
-	// if pathURL == "/" {
-	// 	hash = pathURL
-	// }
-
-	// if hash == "" {
-	// 	http.Error(res, errors.ErrUnsupported.Error(), http.StatusBadRequest)
-	// 	return
-	// }
 
 	url, err := s.su.GetURL(hash, s.logger)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// coocies := req.Cookies()
+	// for _, coocie := range coocies {
+	// 	if coocie.Name == "access_token" && coocie.Value != s.cookie {
+	// 		http.Error(res, strconv.Itoa(jwt.GetUserID(s.cookie, s.logger)), http.StatusUnauthorized)
+	// 		return
+	// 	}
+	// }
+	// s.logger.Info("GetURL.url: ", url)
 
 	res.Header().Set("Location", url)
 	res.WriteHeader(http.StatusTemporaryRedirect)
@@ -247,8 +285,83 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "cannot marshal body", http.StatusBadRequest)
 		return
 	}
+
+	// s.logger.Info("SetArrayURLJson.result: ", result)
+	// cookie := &http.Cookie{
+	// 	HttpOnly: true,
+	// 	Value:    s.cookie,
+	// 	Name:     "access_token",
+	// }
+	// http.SetCookie(res, cookie)
+	// res.Header().Set("Authorization", "Bearer "+s.cookie)
+
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusCreated)
+	res.Write(response)
+}
+
+func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(res, "method must be GET", http.StatusBadRequest)
+		return
+	}
+
+	// contentType := req.Header.Get("Content-Type")
+	// if contentType != "application/json" {
+	// 	http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
+	// 	return
+	// }
+
+	result, err := s.su.GetArrayURL(s.logger)
+	if err != nil {
+		s.logger.Errorln(err)
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, err := json.Marshal(result)
+	if err != nil {
+		s.logger.Errorln(err)
+		http.Error(res, "cannot marshal body", http.StatusBadRequest)
+		return
+	}
+
+	cookie := &http.Cookie{
+		HttpOnly: true,
+		Value:    s.cookie,
+		Name:     "access_token",
+	}
+	http.SetCookie(res, cookie)
+	// res.Header().Set("Authorization", "Bearer "+s.cookie)
+
+	// coocies := req.Cookies()
+	// for _, coocie := range coocies {
+	// 	if coocie.Name == "access_token" && coocie.Value != s.cookie {
+	// 		http.Error(res, strconv.Itoa(jwt.GetUserID(s.cookie, s.logger)), http.StatusUnauthorized)
+	// 		return
+	// 	}
+	// }
+
+	status := http.StatusOK
+	authorization := req.Header.Get("Authorization")
+	if authorization != "" && authorization != "Bearer "+s.cookie || len(response) == 0 {
+		status = http.StatusNoContent
+	}
+	cooc := req.Cookies()
+	if len(cooc) == 0 {
+		status = http.StatusNoContent
+	}
+	for _, c := range cooc {
+		if c.Value != s.cookie {
+			status = http.StatusNoContent
+		}
+	}
+
+	s.logger.Info("GetArrayURLJson.result: ", result)
+	s.logger.Info("GetArrayURLJson.resCookiesult: ", cooc)
+
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(status)
 	res.Write(response)
 }
 

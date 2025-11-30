@@ -12,4 +12,8 @@ const (
 		FROM cupurl
 		WHERE shortURL = $1;
 	`
+	queryGetArrayURL = `
+		SELECT originalURL, shortURL 
+		FROM cupurl;
+	`
 )

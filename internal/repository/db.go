@@ -61,8 +61,43 @@ func (s *Storage) setArrayPsql(req []model.SetArrayURLRequest, logger zap.Sugare
 			URL: s.cfg.Opts.BaseURL + "/" + item.ShortURL,
 		})
 	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+
 	return resp, nil
+}
+
+func (s *Storage) getArrayPsql(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error) {
+	var res []model.GetArrayURLRequest
+
+	rows, err := s.db.Query(queryGetArrayURL)
+	if err != nil {
+		return nil, err
+	}
+	// обязательно закрываем перед возвратом функции
+	defer rows.Close()
+
+	// пробегаем по всем записям
+	for rows.Next() {
+		var v model.GetArrayURLRequest
+		err = rows.Scan(&v.OriginalURL, &v.ShortURL)
+		if err != nil {
+			return nil, err
+		}
+		shortURL := s.cfg.Opts.BaseURL + "/" + v.ShortURL
+		v.ShortURL = shortURL
+
+		res = append(res, v)
+	}
+
+	// проверяем на ошибки
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	// logger.Info("getArrayPsql.result: ", res)
+	return res, nil
 }

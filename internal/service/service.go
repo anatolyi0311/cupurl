@@ -22,6 +22,7 @@ type CaseURL interface {
 	GetURL(hash string, logger zap.SugaredLogger) (string, error)
 	SetArrayURL(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error)
 	Ping() error
+	GetArrayURL(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error)
 }
 
 type Service struct {
@@ -43,13 +44,13 @@ func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseU
 func (s *Service) SetURL(urlTo string, logger zap.SugaredLogger) (string, error) {
 
 	urlTo = strings.TrimSpace(urlTo)
-	if urlTo == "" {
-		logger.Infow(
-			"Service.SetURL",
-			"url.hash.empty", urlTo,
-		)
-		// return "", fmt.Errorf("incorrect url")
-	}
+	// if urlTo == "" {
+	// 	logger.Infow(
+	// 		"Service.SetURL",
+	// 		"url.hash.empty", urlTo,
+	// 	)
+	// 	// return "", fmt.Errorf("incorrect url")
+	// }
 
 	hash := sha256.Sum256([]byte(urlTo))
 
@@ -61,7 +62,10 @@ func (s *Service) SetURL(urlTo string, logger zap.SugaredLogger) (string, error)
 
 	shortHash := fmt.Sprintf("%x", combinedHash[:sizeHash])
 	shortHash, err := s.repo.Set(urlTo, shortHash, logger)
-
+	// if shortHash == "" {
+	// 	return shortHash, err
+	// }
+	// logger.Info("Set.URL.hash: ", shortHash)
 	return shortHash, err
 }
 
@@ -70,11 +74,8 @@ func (s *Service) GetURL(hash string, logger zap.SugaredLogger) (string, error) 
 	// if hash == "" {
 	// 	return "", fmt.Errorf("incorrect id")
 	// }
+	// logger.Info("Get.URL.hash: ", hash)
 	return s.repo.Get(hash, logger)
-}
-
-func (s *Service) Ping() error {
-	return s.repo.Ping()
 }
 
 func (s *Service) SetArrayURL(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error) {
@@ -87,4 +88,12 @@ func (s *Service) SetArrayURL(req []model.SetArrayURLRequest, logger zap.Sugared
 		req[i].ShortURL = fmt.Sprintf("%x", hash[:8])
 	}
 	return s.repo.SetArrayURL(req, logger)
+}
+
+func (s *Service) GetArrayURL(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error) {
+	return s.repo.GetArray(logger)
+}
+
+func (s *Service) Ping() error {
+	return s.repo.Ping()
 }

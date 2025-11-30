@@ -77,7 +77,7 @@ func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (string,
 	})
 	err := s.saveToFile(logger)
 
-	return "", err
+	return hash, err
 }
 
 func (s *Storage) getFromFile(hash string, logger zap.SugaredLogger) (string, error) {
@@ -102,6 +102,22 @@ func (s *Storage) getFromFile(hash string, logger zap.SugaredLogger) (string, er
 	}
 
 	return item.OriginalURL, nil
+}
+
+func (s *Storage) getArrayFromFile(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var res []model.GetArrayURLRequest
+	for _, h := range s.s {
+		shortURL := s.cfg.Opts.BaseURL + "/" + h.ShortURL
+		res = append(res, model.GetArrayURLRequest{OriginalURL: h.OriginalURL, ShortURL: shortURL})
+	}
+	if len(res) == 0 {
+		return []model.GetArrayURLRequest{}, fmt.Errorf("%s not found", "")
+	}
+
+	logger.Info("getArrayFromFile.result: ", res)
+	return res, nil
 }
 
 func (s *Storage) setArrayInFile(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error) {
