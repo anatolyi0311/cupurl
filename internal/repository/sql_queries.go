@@ -8,7 +8,7 @@ const (
         DO NOTHING;
 	`
 	queryGetURL = `
-		SELECT originalURL
+		SELECT originalURL 
 		FROM cupurl
 		WHERE shortURL = $1;
 	`

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -24,12 +25,14 @@ func (m *MockCaseURL) Ping() error {
 	return fmt.Errorf("")
 }
 
-func (m *MockCaseURL) GetArrayURL(_ zap.SugaredLogger) ([]model.GetArrayURLRequest, error) {
+func (m *MockCaseURL) GetArrayURL() ([]model.GetArrayURLRequest, error) {
 	args := m.Called()
 	return []model.GetArrayURLRequest{model.GetArrayURLRequest{OriginalURL: args.String(0)}}, args.Error(1)
 }
 
-func (m *MockCaseURL) SetArrayURL(_ []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error) {
+func (m *MockCaseURL) DeleteArrayURL(ctx context.Context, _ []string, userID string) {}
+
+func (m *MockCaseURL) SetArrayURL(_ []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
 	return make([]model.SetArrayURLResponse, 0), fmt.Errorf("")
 }
 
@@ -50,12 +53,12 @@ func newWrapServer() *Server {
 	}
 }
 
-func (m *MockCaseURL) GetURL(hash string, logger zap.SugaredLogger) (string, error) {
+func (m *MockCaseURL) GetURL(hash string) (model.ShortURL, error) {
 	args := m.Called(hash)
-	return args.String(0), args.Error(1)
+	return model.ShortURL{OriginalURL: args.String(0)}, args.Error(1)
 }
 
-func (m *MockCaseURL) SetURL(url string, logger zap.SugaredLogger) (string, error) {
+func (m *MockCaseURL) SetURL(url string) (string, error) {
 	args := m.Called(url)
 	return args.String(0), args.Error(1)
 }

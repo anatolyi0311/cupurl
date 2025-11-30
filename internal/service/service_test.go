@@ -3,6 +3,7 @@ package service
 import (
 	// "crypto/sha256"
 
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"testing"
@@ -17,7 +18,7 @@ const maskURL = "maskURL"
 
 type MockRepo struct {
 	mock.Mock
-	logger *zap.SugaredLogger
+	// logger *zap.SugaredLogger
 }
 
 func (m *MockRepo) Ping() error {
@@ -34,6 +35,11 @@ func (m *MockRepo) GetArray(_ zap.SugaredLogger) ([]model.GetArrayURLRequest, er
 	return []model.GetArrayURLRequest{model.GetArrayURLRequest{OriginalURL: args.String(0)}}, args.Error(1)
 }
 
+func (m *MockRepo) DeleteArray(_ context.Context, _ []string, _ zap.SugaredLogger) error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 func (m *MockRepo) Set(url, hash string, _ zap.SugaredLogger) (string, error) {
 	args := m.Called(url, hash)
 	return args.String(0), args.Error(1)
@@ -46,10 +52,12 @@ func (m *MockRepo) SetArrayURL(_ []model.SetArrayURLRequest, _ zap.SugaredLogger
 func newWrapService() *Service {
 	logger, _ := zap.NewDevelopment()
 	r := MockRepo{
-		logger: logger.Sugar(),
+		// logger: logger.Sugar(),
 	}
 	return &Service{
 		repo: &r,
+		// logger: *r.logger,
+		logger: *logger.Sugar(),
 	}
 }
 
@@ -88,7 +96,7 @@ func TestServiceSetURL(t *testing.T) {
 				mockRepo.On("Set", tt.url, tt.wantHash).Return(tt.wantHash, tt.wantErr)
 			}
 			// ..3.
-			gotHash, err := s.SetURL(tt.url, *mockRepo.logger)
+			gotHash, err := s.SetURL(tt.url)
 			// ..4.
 			assert.Equal(t, tt.wantHash, gotHash)
 			assert.Equal(t, tt.wantErr, err)
@@ -130,9 +138,9 @@ func TestServiceGetURL(t *testing.T) {
 				mockRepo.On("Get", tt.wantHash).Return(tt.wantURL, tt.wantErr)
 			}
 			// ..3.
-			gotURL, err := s.GetURL(tt.wantHash, *mockRepo.logger)
+			gotURL, err := s.GetURL(tt.wantHash)
 			// ..4.
-			assert.Equal(t, tt.wantURL, gotURL)
+			assert.Equal(t, tt.wantURL, gotURL.OriginalURL)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}

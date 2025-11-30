@@ -1,6 +1,8 @@
 package server
 
 import (
+	"compress/gzip"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -9,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -86,6 +89,7 @@ func (s *Server) router() {
 	s.route.Get("/ping", handler.WithLogging(s.PingDB, s.logger))
 	s.route.Post("/api/shorten/batch", handler.WithLogging(s.SetArrayURLJson, s.logger))
 	s.route.Get("/api/user/urls", handler.WithLogging(s.GetArrayURLJson, s.logger))
+	s.route.Delete("/api/user/urls", handler.WithLogging(s.DeleteArrayURLJson, s.logger))
 }
 
 func (s *Server) Run() {
@@ -145,7 +149,7 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// hash, err := s.su.SetURL(string(*addr.URL), s.logger)
-	hash, err := s.su.SetURL(request.URL, s.logger)
+	hash, err := s.su.SetURL(request.URL)
 	if err != nil {
 		if errors.Is(err, model.ErrURLAlreadyExists) {
 			hashJSON := model.SetURLJsonResponse{
@@ -190,7 +194,7 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	status := http.StatusCreated
 
-	hash, err := s.su.SetURL(string(body), s.logger)
+	hash, err := s.su.SetURL(string(body))
 	if err != nil {
 		if errors.Is(err, model.ErrURLAlreadyExists) {
 			status = http.StatusConflict
@@ -235,11 +239,19 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	hash := strings.TrimPrefix(pathURL, "/")
 
-	url, err := s.su.GetURL(hash, s.logger)
+	url, err := s.su.GetURL(hash)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+	status := http.StatusTemporaryRedirect
+	if url.DeletedFlag {
+		status = http.StatusGone
+	}
+	// MY-FIX
+	// if url.is_deleted == "" {
+	// 	status = http.StatusGone
+	// }
 
 	// coocies := req.Cookies()
 	// for _, coocie := range coocies {
@@ -250,8 +262,8 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	// }
 	// s.logger.Info("GetURL.url: ", url)
 
-	res.Header().Set("Location", url)
-	res.WriteHeader(http.StatusTemporaryRedirect)
+	res.Header().Set("Location", url.OriginalURL)
+	res.WriteHeader(status)
 }
 
 func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
@@ -280,7 +292,7 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	result, err := s.su.SetArrayURL(request, s.logger)
+	result, err := s.su.SetArrayURL(request)
 	if err != nil {
 		s.logger.Errorln(err)
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -319,7 +331,7 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	// 	return
 	// }
 
-	result, err := s.su.GetArrayURL(s.logger)
+	result, err := s.su.GetArrayURL()
 	if err != nil {
 		s.logger.Errorln(err)
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -376,6 +388,50 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	res.Write(response)
 }
 
+func (s *Server) DeleteArrayURLJson(w http.ResponseWriter, r *http.Request) {
+	if status, err := validateRequest(r); err != nil {
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	var ids []string
+
+	reader, err := getDecompressedReader(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if errDecode := json.NewDecoder(reader).Decode(&ids); errDecode != nil {
+		http.Error(w, "cannot decode json", http.StatusBadRequest)
+		return
+	}
+
+	status := http.StatusAccepted
+
+	// go s.su.DeleteArrayURL(context.Background(), ids, strconv.Itoa(userID))
+	authorization := r.Header.Get("Authorization")
+	go func(authorization string) {
+		if authorization != "" && authorization == "Bearer "+s.jwt {
+			userID := jwt.GetUserID(s.cfg.Opts.SecretKey, s.jwt, s.logger)
+			s.logger.Info("authorization: ", authorization)
+			// s.logger.Info("userID: ", userID)
+			// s.logger.Info("ids: ", len(ids), ids)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			s.su.DeleteArrayURL(ctx, ids, strconv.Itoa(userID))
+			status = http.StatusAccepted
+		}
+	}(authorization)
+	// s.logger.Info("GetArrayURLJson.result: ", result)
+
+	// AUTH.
+	// authorization := req.Header.Get("Authorization")
+	// if authorization == "" && authorization != "Bearer "+s.jwt {
+	// }
+
+	w.WriteHeader(status)
+}
+
 func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		http.Error(res, "method must be Get", http.StatusBadRequest)
@@ -392,4 +448,21 @@ func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
 
 func (s *Server) FormatURL(hash string) string {
 	return s.cfg.Opts.BaseURL + "/" + hash
+}
+
+func validateRequest(req *http.Request) (int, error) {
+	if req.Method != http.MethodDelete {
+		return http.StatusBadRequest, errors.New("method must be DELETE")
+	}
+	if req.Header.Get("Content-Type") != "application/json" {
+		return http.StatusBadRequest, errors.New("Content-Type must be application/json")
+	}
+	return http.StatusOK, nil
+}
+
+func getDecompressedReader(r *http.Request) (io.Reader, error) {
+	if r.Header.Get("Content-Encoding") == "gzip" {
+		return gzip.NewReader(r.Body)
+	}
+	return r.Body, nil
 }

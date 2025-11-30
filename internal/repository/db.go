@@ -29,11 +29,16 @@ func (s *Storage) setPsql(url, hash string, logger zap.SugaredLogger) (string, e
 	return hash, nil
 }
 
-func (s *Storage) getPsql(hash string) (string, error) {
+func (s *Storage) getPsql(hash string, logger zap.SugaredLogger) (string, error) {
 	var originalURL string
+	// var isDeleted bool
 	err := s.db.QueryRow(queryGetURL, hash).Scan(&originalURL)
+	if s.cfg.Opts.Debug {
+		logger.Info("getPsql", hash, originalURL)
+	}
 
 	if err != nil {
+		logger.Warn("getPsql.ERROR")
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", fmt.Errorf("URL not found")
 		}
@@ -58,7 +63,7 @@ func (s *Storage) setArrayPsql(req []model.SetArrayURLRequest, logger zap.Sugare
 		}
 		resp = append(resp, model.SetArrayURLResponse{
 			ID:  item.ID,
-			URL: s.cfg.Opts.BaseURL + "/" + item.ShortURL,
+			URL: s.FormatURL(item.ShortURL),
 		})
 	}
 
@@ -86,7 +91,7 @@ func (s *Storage) getArrayPsql(logger zap.SugaredLogger) ([]model.GetArrayURLReq
 		if err != nil {
 			return nil, err
 		}
-		shortURL := s.cfg.Opts.BaseURL + "/" + v.ShortURL
+		shortURL := s.FormatURL(v.ShortURL)
 		v.Hash = v.ShortURL
 		v.ShortURL = shortURL
 
@@ -101,4 +106,41 @@ func (s *Storage) getArrayPsql(logger zap.SugaredLogger) ([]model.GetArrayURLReq
 
 	// logger.Info("getArrayPsql.result: ", res)
 	return res, nil
+}
+
+func (s *Storage) deleteArrayPsql(ctx context.Context, urls []string, logger zap.SugaredLogger) error {
+	logger.Info("db.urls", urls, len(urls))
+	if len(urls) == 0 {
+		return nil
+	}
+	// deletedAt := time.Now()
+	// urlsToDelete := make(map[string][]string)
+	// for _, url := range urls {
+	// 	// urlsToDelete[url.CreatedByID] = append(urlsToDelete[url.CreatedByID], url.ID)
+	// 	urlsToDelete[url] = append(urlsToDelete[url], url)
+	// }
+
+	for _, short := range urls {
+		if short == "" {
+			continue
+		}
+		logger.Info("db.urls.short", short)
+		conn, err := s.db.Conn(ctx)
+		if err != nil {
+			logger.Warn("db.err.conn: ", err.Error())
+			return err
+		}
+		if _, err := conn.ExecContext(
+			ctx,
+			"update cupurl set is_deleted = $1 where shortURL = $2",
+			true,
+			short,
+		); err != nil {
+			logger.Warn("db.err.exec: ", err.Error())
+			return err
+		}
+	}
+
+	logger.Info("db.end.nil: ")
+	return nil
 }
