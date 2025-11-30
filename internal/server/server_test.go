@@ -25,15 +25,17 @@ func (m *MockCaseURL) Ping() error {
 	return fmt.Errorf("")
 }
 
-func (m *MockCaseURL) GetArrayURL() ([]model.GetArrayURLRequest, error) {
+func (m *MockCaseURL) GetArrayURL() ([]model.ShortURL, error) {
 	args := m.Called()
-	return []model.GetArrayURLRequest{model.GetArrayURLRequest{OriginalURL: args.String(0)}}, args.Error(1)
+	return []model.ShortURL{model.ShortURL{OriginalURL: args.String(0)}}, args.Error(1)
 }
 
-func (m *MockCaseURL) DeleteArrayURL(ctx context.Context, _ []string, userID string) {}
+func (m *MockCaseURL) DeleteArrayURL(hash []string) {}
 
-func (m *MockCaseURL) SetArrayURL(_ []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
-	return make([]model.SetArrayURLResponse, 0), fmt.Errorf("")
+func (m *MockCaseURL) DeleteUrls(ctx context.Context, _ []string, userID string) {}
+
+func (m *MockCaseURL) SetArrayURL(_ []model.SetArrayURLRequest) ([]model.ShortURL, error) {
+	return make([]model.ShortURL, 0), fmt.Errorf("")
 }
 
 func newWrapServer() *Server {
@@ -58,9 +60,14 @@ func (m *MockCaseURL) GetURL(hash string) (model.ShortURL, error) {
 	return model.ShortURL{OriginalURL: args.String(0)}, args.Error(1)
 }
 
-func (m *MockCaseURL) SetURL(url string) (string, error) {
+func (m *MockCaseURL) SetURL(url string) (model.ShortURL, error) {
 	args := m.Called(url)
-	return args.String(0), args.Error(1)
+	return model.ShortURL{ShortURL: args.String(0)}, args.Error(1)
+}
+
+func (m *MockCaseURL) GetStats(ctx context.Context) (model.Stats, error) {
+	args := m.Called(0, 0)
+	return model.Stats{UsersCount: args.Int(0), UrlsCount: args.Int(1)}, nil
 }
 
 func TestServerGetURL(t *testing.T) {

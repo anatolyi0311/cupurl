@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Storage) getMemory(hash string, logger zap.SugaredLogger) (string, error) {
+func (s *Storage) getMemory(hash string, logger zap.SugaredLogger) (model.ShortURL, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -29,30 +29,30 @@ func (s *Storage) getMemory(hash string, logger zap.SugaredLogger) (string, erro
 
 	url, exist := s.memoryCache[hash]
 	if !exist {
-		return "", fmt.Errorf("%s not found", hash)
+		return model.ShortURL{}, fmt.Errorf("%s not found", hash)
 	}
 
-	return url, nil
+	return model.ShortURL{OriginalURL: url, ShortURL: hash}, nil
 }
 
-func (s *Storage) getArrayMemory(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error) {
+func (s *Storage) getArrayMemory(logger zap.SugaredLogger) ([]model.ShortURL, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	var res []model.GetArrayURLRequest
+	var res []model.ShortURL
 	for key, val := range s.memoryCache {
 		shortURL := s.cfg.Opts.BaseURL + "/" + key
-		res = append(res, model.GetArrayURLRequest{OriginalURL: val, ShortURL: shortURL, Hash: key})
+		res = append(res, model.ShortURL{OriginalURL: val, ShortURL: shortURL})
 	}
 
 	if len(res) == 0 {
-		return []model.GetArrayURLRequest{}, fmt.Errorf("%s not found", "")
+		return []model.ShortURL{}, fmt.Errorf("%s not found", "")
 	}
 
 	logger.Info("getArrayMemory.result: ", res)
 	return res, nil
 }
 
-func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger) (string, error) {
+func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger) (model.ShortURL, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -63,17 +63,24 @@ func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger) (string,
 
 	s.memoryCache[hash] = url
 
-	return hash, nil
+	return model.ShortURL{OriginalURL: url, ShortURL: hash}, nil
 }
 
-func (s *Storage) setArrayMemory(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error) {
-	resp := []model.SetArrayURLResponse{}
+func (s *Storage) setArrayMemory(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.ShortURL, error) {
+	resp := []model.ShortURL{}
 	for _, item := range req {
 		s.setMemory(item.OriginalURL, item.ShortURL, logger)
-		resp = append(resp, model.SetArrayURLResponse{
-			ID:  item.ID,
-			URL: item.ShortURL,
+		resp = append(resp, model.ShortURL{
+			ShortURL: item.ShortURL,
 		})
 	}
 	return resp, nil
+}
+
+func (s *Storage) DeleteMem(hash string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	delete(s.memoryCache, hash)
+	return nil
 }

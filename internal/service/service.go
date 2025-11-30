@@ -11,10 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/model"
-	repo "github.com/anatolyi0311/cupurl/internal/repository"
-	"go.uber.org/zap"
+	"github.com/anatolyi0311/cupurl/internal/repository"
 )
 
 const (
@@ -22,21 +23,23 @@ const (
 )
 
 type CaseURL interface {
-	SetURL(url string) (string, error)
+	SetURL(url string) (model.ShortURL, error)
 	GetURL(hash string) (model.ShortURL, error)
-	SetArrayURL(req []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error)
+	SetArrayURL(req []model.SetArrayURLRequest) ([]model.ShortURL, error)
 	Ping() error
-	GetArrayURL() ([]model.GetArrayURLRequest, error)
-	DeleteArrayURL(ctx context.Context, urls []string, userID string)
+	GetArrayURL() ([]model.ShortURL, error)
+	DeleteArrayURL(hash []string)
+	DeleteUrls(ctx context.Context, urls []string, userID string)
+	GetStats(ctx context.Context) (model.Stats, error)
 }
 
 type Service struct {
-	repo   repo.Repository
+	repo   repository.Repository
 	logger zap.SugaredLogger
 }
 
 func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseURL, error) {
-	repo, err := repo.NewStorage(cfg, db, logger)
+	repo, err := repository.NewStorage(cfg, db, logger)
 
 	if err != nil {
 		return nil, err
@@ -48,12 +51,12 @@ func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseU
 	}, nil
 }
 
-func (s *Service) SetURL(urlTo string) (string, error) {
+func (s *Service) SetURL(urlTo string) (model.ShortURL, error) {
 	// ...
 	urlTo = strings.TrimSpace(urlTo)
 	if urlTo == "" {
 		s.logger.Warn("url.hash.empty")
-		return "", fmt.Errorf("incorrect url")
+		return model.ShortURL{}, fmt.Errorf("incorrect url")
 	}
 
 	hash := sha256.Sum256([]byte(urlTo))
@@ -64,11 +67,11 @@ func (s *Service) SetURL(urlTo string) (string, error) {
 	hash2 := [32]byte{byte(seconds)}
 	combinedHash := append(hash[:], hash2[:]...)
 
-	shortHash := fmt.Sprintf("%x", combinedHash[:sizeHash])
-	shortHash, err := s.repo.Set(urlTo, shortHash, s.logger)
-	if shortHash == "" {
+	shortHashSize := fmt.Sprintf("%x", combinedHash[:sizeHash])
+	shortHash, err := s.repo.Set(model.ShortURL{OriginalURL: urlTo, ShortURL: shortHashSize}, s.logger)
+	if shortHash.ShortURL == "" {
 		s.logger.Warn("url.hash.empty")
-		return "", fmt.Errorf("incorrect id")
+		return model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
 
 	// logger.Info("Set.URL.hash: ", shortHash, " urlTo:", urlTo)
@@ -82,13 +85,12 @@ func (s *Service) GetURL(hash string) (model.ShortURL, error) {
 	}
 	// logger.Info("Get.URL.hash: ", hash)
 	originalURL, err := s.repo.Get(hash, s.logger)
-	// if originalURL == "" {
-
-	// }
-	return model.ShortURL{OriginalURL: originalURL}, err
+	// originalURL.DeletedFlag = false
+	// if originalURL == "" {}
+	return originalURL, err
 }
 
-func (s *Service) SetArrayURL(req []model.SetArrayURLRequest) ([]model.SetArrayURLResponse, error) {
+func (s *Service) SetArrayURL(req []model.SetArrayURLRequest) ([]model.ShortURL, error) {
 	for i, item := range req {
 		item.OriginalURL = strings.TrimSpace(item.OriginalURL)
 		if item.OriginalURL == "" {
@@ -100,44 +102,65 @@ func (s *Service) SetArrayURL(req []model.SetArrayURLRequest) ([]model.SetArrayU
 	return s.repo.SetArrayURL(req, s.logger)
 }
 
-func (s *Service) GetArrayURL() ([]model.GetArrayURLRequest, error) {
+func (s *Service) GetArrayURL() ([]model.ShortURL, error) {
 	return s.repo.GetArray(s.logger)
 }
 
-func (s *Service) DeleteArrayURL(ctx context.Context, ids []string, userID string) {
+func (s *Service) DeleteArrayURL(hashArray []string) {
+	for _, hash := range hashArray {
+		go func(hash string) {
+			err := s.repo.Delete(hash, s.logger)
+			if err != nil {
+				s.logger.Warn(err)
+			}
+		}(hash)
+	}
+}
+
+func (s *Service) DeleteUrls(ctx context.Context, ids []string, userID string) {
 	done := make(chan struct{})
 	defer close(done)
 
 	workersCount := runtime.NumCPU()
 	inputCh := make(chan string)
-	// modelsToDelete := make([]model.GetArrayURLRequest, 0, len(ids))
-	toDel := make([]string, 0, len(ids))
+	modelsToDelete := make([]model.ShortURL, 0, len(ids))
+	// toDel := make([]string, 0, len(ids))
 
 	go func() {
 		for _, id := range ids {
 			inputCh <- id
+			s.logger.Info("..id: ", id)
 		}
-
 		close(inputCh)
 	}()
+	s.logger.Info("DeleteUrls.inputCh: ", len(inputCh))
 
-	workerChs := make([]chan model.GetArrayURLRequest, 0, workersCount)
+	workerChs := make([]chan model.ShortURL, 0, workersCount)
 	for urlID := range inputCh {
-		workerCh := make(chan model.GetArrayURLRequest)
+		workerCh := make(chan model.ShortURL)
 		newWorker(urlID, userID, workerCh)
 		workerChs = append(workerChs, workerCh)
+		s.logger.Info("..urlID: ", urlID)
 	}
 
 	for v := range fanIn(done, workerChs...) {
-		// modelsToDelete = append(modelsToDelete, v)
-		toDel = append(toDel, v.Hash) // v.ShortURL
+		modelsToDelete = append(modelsToDelete, v)
 	}
-	// s.repo.DeleteArray(context.Background(), toDel, s.logger)
-	err := s.repo.DeleteArray(ctx, toDel, s.logger)
+	err := s.repo.DeleteArray(ctx, modelsToDelete, s.logger)
 	if err != nil {
-		s.logger.Warn("Delete: ", toDel)
+		s.logger.Warn("Err.Delete: ", len(modelsToDelete))
 		fmt.Printf("couldn't delete urls: %v\n", err)
 	}
+	s.logger.Info("DeleteUrls.workersCount: ", workersCount, " inputCh: ", len(inputCh))
+	time.Sleep(time.Second)
+}
+
+func (s *Service) GetStats(ctx context.Context) (model.Stats, error) {
+	usersCount, urlsCount, err := s.repo.GetUsersAndUrlsCount(ctx)
+	if err != nil {
+		return model.Stats{}, err
+	}
+	return model.Stats{UsersCount: usersCount, UrlsCount: urlsCount}, nil
 }
 
 func (s *Service) Ping() error {
@@ -148,7 +171,7 @@ func (s *Service) FormatURL(baseURL, hash string) string {
 	return baseURL + "/" + hash
 }
 
-func newWorker(urlID string, userID string, out chan model.GetArrayURLRequest) {
+func newWorker(urlID string, userID string, out chan model.ShortURL) {
 	go func() {
 		defer func() {
 			if x := recover(); x != nil {
@@ -156,36 +179,39 @@ func newWorker(urlID string, userID string, out chan model.GetArrayURLRequest) {
 				log.Printf("run time panic: %v, %v", x, out)
 			}
 		}()
-
-		out <- model.GetArrayURLRequest{ID: urlID, UserID: userID, Hash: urlID}
+		out <- model.ShortURL{UserID: userID, ShortURL: urlID}
 		close(out)
 	}()
 }
 
-func fanIn(done <-chan struct{}, channels ...chan model.GetArrayURLRequest) chan model.GetArrayURLRequest {
+func fanIn(done chan struct{}, channels ...chan model.ShortURL) chan model.ShortURL {
 	var wg sync.WaitGroup
-	multiplexedStream := make(chan model.GetArrayURLRequest)
+	finalCh := make(chan model.ShortURL)
 
-	multiplex := func(c <-chan model.GetArrayURLRequest) {
-		defer wg.Done()
-		for v := range c {
+	multiplex := func(c chan model.ShortURL) {
+		// defer wg.Done()
+		for data := range c {
 			select {
 			case <-done:
 				return
-			case multiplexedStream <- v:
+			case finalCh <- data:
 			}
+			time.Sleep(50 * time.Millisecond)
 		}
+		wg.Done()
 	}
 
 	wg.Add(len(channels))
 	for _, c := range channels {
-		go multiplex(c)
+		chClosure := c
+		// wg.Add(1)
+		go multiplex(chClosure)
 	}
 
 	go func() {
 		wg.Wait()
-		close(multiplexedStream)
+		close(finalCh)
 	}()
 
-	return multiplexedStream
+	return finalCh
 }

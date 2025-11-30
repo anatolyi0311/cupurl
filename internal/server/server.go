@@ -1,17 +1,12 @@
 package server
 
 import (
-	"compress/gzip"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -24,11 +19,26 @@ import (
 	"github.com/anatolyi0311/cupurl/internal/jwt"
 	"github.com/anatolyi0311/cupurl/internal/model"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
+	"github.com/anatolyi0311/cupurl/internal/service/crypto"
 )
 
 const (
-	addr = "localhost:8080"
+	addr             = "localhost:8080"
+	UserIDCookieName = "shortener-user-id"
 )
+
+type ServerHTTP interface {
+	Run() error
+	Shutdown() error
+}
+
+func New(config *config.Config, ipChecker srv.IPCheckerInterface, service *srv.Service, svr Server) (Server, error) {
+	if config.Opts.EnableHTTPS {
+		return Server{}, nil //NewHTTPS(config, ipChecker, service)
+	} else {
+		return svr, nil //NewHTTP(config, ipChecker, service, svr )
+	}
+}
 
 type ResultURL struct {
 	Result string `json:"result" doc:"result"`
@@ -43,30 +53,11 @@ type Server struct {
 	route  *chi.Mux
 	su     srv.CaseURL
 	logger zap.SugaredLogger
-	// db     *sql.DB
-	jwt string
+	crypto crypto.Cryptographer // interface that we'll use to encrypt and decrypt values
 }
 
 func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Server, error) {
-	// initial DB with sql.Open(driverName, dataSourceName string) (*DB, error)
-	// addrDB := cfg.Opts.AddrDB
-	// driverName := "pgx"
-	// dataSourceName := fmt.Sprintf(
-	// 	"host=%s user=%s password=%s dbname=%s sslmode=disable",
-	// 	addrDB, `videos`, `userpassword`, `videos`,
-	// )
-	// db, err := sql.Open(driverName, dataSourceName)
-	// if err != nil {
-	// 	logger.Fatal(err)
-	// }
-	// defer db.Close()
-
 	su, err := srv.NewService(cfg, db, logger)
-	if err != nil {
-		return nil, err
-	}
-	userID := 1
-	setJWT, err := jwt.SetJWT(cfg.Opts.SecretKey, userID, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -75,20 +66,22 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 		route:  chi.NewRouter(),
 		su:     su,
 		logger: logger,
-		// db:     db,
-		jwt: setJWT,
 	}
 	server.router()
 	return server, nil
 }
 
 func (s *Server) router() {
+	s.route.Use(handler.Compress)
+	s.route.Use(jwt.Cookies)
+
 	s.route.Post("/", handler.WithLogging(s.SetURLHandler, s.logger))
 	s.route.Post("/api/shorten", handler.WithLogging(s.SetJSONHandler, s.logger))
+	s.route.Post("/api/shorten/batch", handler.WithLogging(s.SetArrayURLJson, s.logger))
 	s.route.Get("/{id}", handler.WithLogging(s.GetURLHandler, s.logger))
 	s.route.Get("/ping", handler.WithLogging(s.PingDB, s.logger))
-	s.route.Post("/api/shorten/batch", handler.WithLogging(s.SetArrayURLJson, s.logger))
 	s.route.Get("/api/user/urls", handler.WithLogging(s.GetArrayURLJson, s.logger))
+	// s.route.Get("/api/internal/stats", handler.WithLogging(s.Stats, s.logger))
 	s.route.Delete("/api/user/urls", handler.WithLogging(s.DeleteArrayURLJson, s.logger))
 }
 
@@ -98,12 +91,16 @@ func (s *Server) Run() {
 		"addr", s.cfg.Opts.Addr,
 		"base", s.cfg.Opts.BaseURL,
 		"addrDB", s.cfg.Opts.AddrDB,
-		// "hostDB", s.cfg.Opts.HostDB,
-		// "portDB", s.cfg.Opts.PortDB,
-		"userID", jwt.GetUserID(s.cfg.Opts.SecretKey, s.jwt, s.logger),
+		"key", s.cfg.Opts.EncryptionKey,
 	)
-	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(s.route)); err != nil {
-		log.Fatalln(err)
+	// httpServer := &http.Server{
+	// 	Addr:              s.cfg.Opts.Addr,
+	// 	Handler:           s.route,
+	// 	ReadHeaderTimeout: 1 * time.Second,
+	// }
+	if err := http.ListenAndServe(s.cfg.Opts.Addr, s.route); err != nil {
+		s.logger.Warn("err", err.Error())
+		s.logger.Fatalln(err)
 	}
 }
 
@@ -112,27 +109,12 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "method must be POST", http.StatusBadRequest)
 		return
 	}
+
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
 		return
 	}
-
-	// id := req.URL.Query().Get("url")
-
-	// var addr URL
-	// var buf bytes.Buffer
-	// // читаем тело запроса
-	// _, err := buf.ReadFrom(req.Body)
-	// if err != nil {
-	// 	http.Error(res, err.Error(), http.StatusBadRequest)
-	// 	return
-	// }
-	// // десериализуем JSON в Visitor
-	// if err = json.Unmarshal(buf.Bytes(), &addr); err != nil {
-	// 	http.Error(res, err.Error(), http.StatusBadRequest)
-	// 	return
-	// }
 
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -148,12 +130,11 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// hash, err := s.su.SetURL(string(*addr.URL), s.logger)
 	hash, err := s.su.SetURL(request.URL)
 	if err != nil {
 		if errors.Is(err, model.ErrURLAlreadyExists) {
 			hashJSON := model.SetURLJsonResponse{
-				URL: s.cfg.Opts.BaseURL + "/" + hash,
+				URL: s.cfg.Opts.BaseURL + "/" + hash.ShortURL,
 			}
 			response, _ := json.Marshal(hashJSON)
 			res.Header().Set("Content-Type", "application/json")
@@ -165,20 +146,27 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	resp, err := json.Marshal(ResultURL{Result: s.cfg.Opts.BaseURL + "/" + hash})
-	if err != nil {
-		s.logger.Errorln(err)
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
+	hashJSON := model.SetURLJsonResponse{
+		URL: s.cfg.Opts.BaseURL + "/" + hash.ShortURL,
 	}
 
+	response, err := json.Marshal(hashJSON)
+	if err != nil {
+		s.logger.Errorln(err)
+		http.Error(res, "cannot marshal body", http.StatusBadRequest)
+		return
+	}
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusCreated)
-	res.Write(resp)
+	res.Write(response)
 }
 
 func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(res, "method must be POST", http.StatusBadRequest)
+		return
+	}
+
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "text/plain" {
 		http.Error(res, "Content-Type must be text/plain", http.StatusBadRequest)
@@ -192,47 +180,24 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
-	status := http.StatusCreated
-
 	hash, err := s.su.SetURL(string(body))
 	if err != nil {
 		if errors.Is(err, model.ErrURLAlreadyExists) {
-			status = http.StatusConflict
-		}
-		if status != http.StatusConflict {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			res.Header().Set("Content-Type", "text/plain")
+			res.WriteHeader(http.StatusConflict)
+			res.Write([]byte(s.cfg.Opts.BaseURL + "/" + hash.ShortURL))
 			return
 		}
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	// DEBUG.
-	if s.cfg.Opts.Debug {
-		authorization := req.Header.Get("Authorization")
-		coocies := req.Cookies()
-		s.logger.Info("SetURL.hash: ", hash, " body:", string(body), " coocies:", coocies, " authorization:", authorization)
-	}
-
-	// ...
-	cookie := &http.Cookie{
-		HttpOnly: true,
-		Value:    s.jwt,
-		Name:     "access_token",
-	}
-	http.SetCookie(res, cookie)
-
-	res.Header().Set("Authorization", "Bearer "+s.jwt)
 	res.Header().Set("Content-Type", "text/plain")
-	res.WriteHeader(status)
-	res.Write([]byte(s.FormatURL(hash)))
+	res.WriteHeader(http.StatusCreated)
+	res.Write([]byte(s.cfg.Opts.BaseURL + "/" + hash.ShortURL))
 }
 
 func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
-	// authorization := req.Header.Get("Authorization")
-	// if authorization != "" && authorization != "Bearer "+s.cookie {
-	// 	http.Error(res, "authorization fail", http.StatusUnauthorized)
-	// 	return
-	// }
-
 	pathURL := chi.URLParam(req, "id")
 	if pathURL == "" {
 		pathURL = req.URL.Path
@@ -241,29 +206,18 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 
 	url, err := s.su.GetURL(hash)
 	if err != nil {
+		if errors.Is(err, model.ErrDeletedURL) {
+			http.Error(res, err.Error(), http.StatusGone)
+			return
+		}
+		s.logger.Error(err)
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-	status := http.StatusTemporaryRedirect
-	if url.DeletedFlag {
-		status = http.StatusGone
-	}
-	// MY-FIX
-	// if url.is_deleted == "" {
-	// 	status = http.StatusGone
-	// }
-
-	// coocies := req.Cookies()
-	// for _, coocie := range coocies {
-	// 	if coocie.Name == "access_token" && coocie.Value != s.cookie {
-	// 		http.Error(res, strconv.Itoa(jwt.GetUserID(s.cookie, s.logger)), http.StatusUnauthorized)
-	// 		return
-	// 	}
-	// }
 	// s.logger.Info("GetURL.url: ", url)
 
 	res.Header().Set("Location", url.OriginalURL)
-	res.WriteHeader(status)
+	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
@@ -287,7 +241,7 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 
 	var request []model.SetArrayURLRequest
 	if err = json.Unmarshal(body, &request); err != nil {
-		// logger.Errorln(err)
+		s.logger.Errorln(err)
 		http.Error(res, "cannot unmarshal body", http.StatusBadRequest)
 		return
 	}
@@ -305,39 +259,46 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "cannot marshal body", http.StatusBadRequest)
 		return
 	}
-
-	// s.logger.Info("SetArrayURLJson.result: ", result)
-	// cookie := &http.Cookie{
-	// 	HttpOnly: true,
-	// 	Value:    s.cookie,
-	// 	Name:     "access_token",
-	// }
-	// http.SetCookie(res, cookie)
-	// res.Header().Set("Authorization", "Bearer "+s.cookie)
-
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusCreated)
 	res.Write(response)
 }
 
 func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
+	s.logger.Info("GetArrayURLJson: ", req.Method)
+
 	if req.Method != http.MethodGet {
 		http.Error(res, "method must be GET", http.StatusBadRequest)
 		return
 	}
+
+	_, err := jwt.GetUserID(req)
+	if err != nil {
+		s.logger.Warn("GetArrayURLJson.err.ID: ", req.Method)
+		http.Error(res, err.Error(), http.StatusNoContent)
+		return
+	}
+
 	contentType := req.Header.Get("Content-Type")
 	// if contentType != "application/json" {
 	// 	http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
 	// 	return
 	// }
+	s.logger.Info("GetArrayURLJson.contentType: ", contentType)
 
 	result, err := s.su.GetArrayURL()
+	s.logger.Info("GetArrayURLJson.result: ", result)
+	s.logger.Info("GetArrayURLJson.err: ", err.Error())
+
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(res, err.Error(), http.StatusNoContent)
+			return
+		}
 		s.logger.Errorln(err)
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-	// s.logger.Info("GetArrayURLJson.result: ", result)
 
 	response, err := json.Marshal(result)
 	if err != nil {
@@ -346,91 +307,64 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	status := http.StatusOK
-	// for _, r := range result {
-	// 	s.logger.Info("hash: ", r.Hash)
-	// 	if r.Hash == "" || r.ShortURL == "" {
-	// 		status = http.StatusNoContent
-	// 	}
-	// }
-
-	// AUTH.
-	authorization := req.Header.Get("Authorization")
-	if authorization == "" && authorization != "Bearer "+s.jwt {
-		status = http.StatusNoContent
-	}
-	// DEBUG.
-	if s.cfg.Opts.Debug {
-		coocies := req.Cookies()
-		if len(coocies) > 0 {
-			for _, coocie := range coocies {
-				userID := jwt.GetUserID(s.cfg.Opts.SecretKey, s.jwt, s.logger)
-				if coocie.Name == "access_token" && coocie.Value != s.jwt && userID != 1 {
-					http.Error(res, strconv.Itoa(userID), http.StatusUnauthorized)
-				}
-			}
-		}
-		s.logger.Info("GetArrayURLJson.coocies: ", coocies, " authorization:", authorization, " contentType:", contentType)
-	}
-
-	// ...
-	cookie := &http.Cookie{
-		HttpOnly: true,
-		Value:    s.jwt,
-		Name:     "access_token",
-	}
-	http.SetCookie(res, cookie)
-
-	// ...
-	res.Header().Set("Authorization", "Bearer "+s.jwt)
 	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(status)
+	res.WriteHeader(http.StatusOK)
 	res.Write(response)
 }
 
-func (s *Server) DeleteArrayURLJson(w http.ResponseWriter, r *http.Request) {
-	if status, err := validateRequest(r); err != nil {
-		http.Error(w, err.Error(), status)
+func (s *Server) DeleteArrayURLJson(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodDelete {
+		http.Error(res, "method must be DELETE", http.StatusBadRequest)
 		return
 	}
 
-	var ids []string
+	contentType := req.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
+		return
+	}
 
-	reader, err := getDecompressedReader(r)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(res, "cannot read body", http.StatusBadRequest)
 		return
 	}
-	if errDecode := json.NewDecoder(reader).Decode(&ids); errDecode != nil {
-		http.Error(w, "cannot decode json", http.StatusBadRequest)
+	defer req.Body.Close()
+
+	var hashArray []string
+	if err = json.Unmarshal(body, &hashArray); err != nil {
+		http.Error(res, "cannot unmarshal body", http.StatusBadRequest)
 		return
 	}
 
-	status := http.StatusAccepted
+	_, err = jwt.GetUserID(req)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusNoContent)
+		return
+	}
 
-	// go s.su.DeleteArrayURL(context.Background(), ids, strconv.Itoa(userID))
-	authorization := r.Header.Get("Authorization")
-	go func(authorization string) {
-		if authorization != "" && authorization == "Bearer "+s.jwt {
-			userID := jwt.GetUserID(s.cfg.Opts.SecretKey, s.jwt, s.logger)
-			s.logger.Info("authorization: ", authorization)
-			// s.logger.Info("userID: ", userID)
-			// s.logger.Info("ids: ", len(ids), ids)
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			s.su.DeleteArrayURL(ctx, ids, strconv.Itoa(userID))
-			status = http.StatusAccepted
-		}
-	}(authorization)
-	// s.logger.Info("GetArrayURLJson.result: ", result)
+	s.su.DeleteArrayURL(hashArray)
 
-	// AUTH.
-	// authorization := req.Header.Get("Authorization")
-	// if authorization == "" && authorization != "Bearer "+s.jwt {
-	// }
-
-	w.WriteHeader(status)
+	res.WriteHeader(http.StatusAccepted)
 }
+
+// func (s *Server) Stats(w http.ResponseWriter, r *http.Request) {
+// 	stats, err := s.su.GetStats(r.Context())
+// 	if err != nil {
+// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+// 	s.logger.Info("start.Stats", stats)
+// 	out, err := json.Marshal(stats)
+// 	if err != nil {
+// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+// 	w.Header().Set("Content-Type", "application/json")
+// 	if _, err = w.Write(out); err != nil {
+// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+// 	}
+// }
 
 func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
@@ -446,23 +380,16 @@ func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(status)
 }
 
-func (s *Server) FormatURL(hash string) string {
+func (s *Server) FormatShortURL(hash string) string {
 	return s.cfg.Opts.BaseURL + "/" + hash
 }
 
-func validateRequest(req *http.Request) (int, error) {
-	if req.Method != http.MethodDelete {
-		return http.StatusBadRequest, errors.New("method must be DELETE")
-	}
-	if req.Header.Get("Content-Type") != "application/json" {
-		return http.StatusBadRequest, errors.New("Content-Type must be application/json")
-	}
-	return http.StatusOK, nil
-}
-
-func getDecompressedReader(r *http.Request) (io.Reader, error) {
-	if r.Header.Get("Content-Encoding") == "gzip" {
-		return gzip.NewReader(r.Body)
-	}
-	return r.Body, nil
-}
+// func validateRequest(req *http.Request) (int, error) {
+// 	if req.Method != http.MethodDelete {
+// 		return http.StatusBadRequest, errors.New("method must be DELETE")
+// 	}
+// 	if req.Header.Get("Content-Type") != "application/json" {
+// 		return http.StatusBadRequest, errors.New("Content-Type must be application/json")
+// 	}
+// 	return http.StatusOK, nil
+// }

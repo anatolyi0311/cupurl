@@ -13,20 +13,22 @@ import (
 )
 
 type Repository interface {
-	Get(hash string, logger zap.SugaredLogger) (string, error)
-	Set(url, hash string, logger zap.SugaredLogger) (string, error)
+	Get(hash string, logger zap.SugaredLogger) (model.ShortURL, error)
+	Set(shortURL model.ShortURL, logger zap.SugaredLogger) (model.ShortURL, error)
 	Ping() error
-	SetArrayURL(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error)
-	GetArray(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error)
-	DeleteArray(ctx context.Context, urls []string, logger zap.SugaredLogger) error
+	SetArrayURL(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.ShortURL, error)
+	GetArray(logger zap.SugaredLogger) ([]model.ShortURL, error)
+	DeleteArray(ctx context.Context, urls []model.ShortURL, logger zap.SugaredLogger) error
+	Delete(hash string, logger zap.SugaredLogger) error
+	GetUsersAndUrlsCount(ctx context.Context) (int, int, error)
 }
 
 type URLRecord struct {
 	UUID        string `json:"uuid" db:"uuid"`
-	ShortURL    string `json:"short_url" db:"short_url"`
-	OriginalURL string `json:"original_url" db:"original_url"`
-	DeletedFlag bool   `json:"is_deleted" db:"is_deleted"`
-	CreatedByID string
+	ShortURL    string `json:"short_url" db:"shortURL"`
+	OriginalURL string `json:"original_url" db:"originalURL"`
+	DeletedFlag bool   `json:"is_deleted" db:"deletedFlag"`
+	CreatedByID string `json:"created_by" db:"createdBy"`
 }
 
 type Storage struct {
@@ -52,7 +54,7 @@ func NewStorage(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (Repos
 	return s, nil
 }
 
-func (s *Storage) Get(hash string, logger zap.SugaredLogger) (string, error) {
+func (s *Storage) Get(hash string, logger zap.SugaredLogger) (model.ShortURL, error) {
 	if s.db != nil {
 		return s.getPsql(hash, logger)
 	}
@@ -62,27 +64,36 @@ func (s *Storage) Get(hash string, logger zap.SugaredLogger) (string, error) {
 	return s.getMemory(hash, logger)
 }
 
-func (s *Storage) GetArray(logger zap.SugaredLogger) ([]model.GetArrayURLRequest, error) {
+func (s *Storage) GetArray(logger zap.SugaredLogger) ([]model.ShortURL, error) {
 	if s.db != nil {
-		return s.getArrayPsql(logger)
+		res, err := s.getArrayPsql(logger)
+		logger.Info("getarray", res)
+		r := make([]model.ShortURL, 0, len(res))
+		for i := range res {
+			r = append(r, model.ShortURL{OriginalURL: res[i].Original, ShortURL: res[i].Short})
+		}
+		return r, err
 	}
 	if s.hasFile {
+		logger.Info("getarray file")
 		return s.getArrayFromFile(logger)
 	}
+	logger.Info("getarray mem")
 	return s.getArrayMemory(logger)
 }
 
-func (s *Storage) Set(url, hash string, logger zap.SugaredLogger) (string, error) {
+func (s *Storage) Set(shortURL model.ShortURL, logger zap.SugaredLogger) (model.ShortURL, error) {
 	if s.db != nil {
-		return s.setPsql(url, hash, logger)
+		logger.Info("set.db: ", shortURL)
+		return s.setPsql(shortURL, logger)
 	}
 	if s.hasFile {
-		return s.setInFile(url, hash, logger)
+		return s.setInFile(shortURL.OriginalURL, shortURL.ShortURL, logger)
 	}
-	return s.setMemory(url, hash, logger)
+	return s.setMemory(shortURL.OriginalURL, shortURL.ShortURL, logger)
 }
 
-func (s *Storage) SetArrayURL(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.SetArrayURLResponse, error) {
+func (s *Storage) SetArrayURL(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.ShortURL, error) {
 	if s.db != nil {
 		return s.setArrayPsql(req, logger)
 	}
@@ -92,23 +103,31 @@ func (s *Storage) SetArrayURL(req []model.SetArrayURLRequest, logger zap.Sugared
 	return s.setArrayMemory(req, logger)
 }
 
-func (s *Storage) DeleteArray(ctx context.Context, toDel []string, logger zap.SugaredLogger) error {
-	logger.Info("DeleteArray.urls: ", len(toDel), toDel)
-	if len(toDel) == 0 {
-		logger.Warn("DeleteArray.urls.1: toDel ", toDel, len(toDel))
-		return nil
-	}
+func (s *Storage) Delete(hash string, logger zap.SugaredLogger) error {
+	// logger.Info("DeleteArray.urls: ", len(toDel), toDel)
+	// if len(toDel) == 0 {
+	// 	return nil
+	// }
 	if s.db != nil {
-		logger.Info("DeleteArray.urls.2: toDel ", toDel, len(toDel))
-		// if len(toDel) == 0 {
-		// 	return nil
-		// }
-		err := s.deleteArrayPsql(ctx, toDel, logger)
-		// if err != nil {
-
-		// }
+		// err := s.DeleteUrls(ctx, toDel, logger)
+		err := s.DeleteDB(hash)
 		return err
-		// s.deleteArrayPsql(ctx, toDel)
+	}
+	if s.hasFile {
+		return s.DeleteFile(hash, logger)
+	}
+
+	return s.DeleteMem(hash)
+}
+
+func (s *Storage) DeleteArray(ctx context.Context, toDel []model.ShortURL, logger zap.SugaredLogger) error {
+	// logger.Info("DeleteArray.urls: ", len(toDel), toDel)
+	// if len(toDel) == 0 {
+	// 	return nil
+	// }
+	if s.db != nil {
+		err := s.DeleteUrls(ctx, toDel, logger)
+		return err
 	}
 	return nil
 }

@@ -11,46 +11,52 @@ import (
 	"github.com/anatolyi0311/cupurl/migrations"
 )
 
+var (
+	buildVersion = "N/A" //nolint:gochecknoglobals
+	buildDate    = "N/A" //nolint:gochecknoglobals
+	buildCommit  = "N/A" //nolint:gochecknoglobals
+)
+
 func main() {
 
 	// logging.
-	var sugar zap.SugaredLogger
+	var sugarLogger zap.SugaredLogger
+
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		// вызываем панику, если ошибка
 		log.Fatal(err)
 	}
 	defer logger.Sync()
-	sugar = *logger.Sugar()
+	sugarLogger = *logger.Sugar()
 
 	// configuration.
-	cfg, err := config.NewConfig(sugar)
+	cfg, err := config.NewConfig(sugarLogger)
 	if err != nil {
-		log.Fatalln(err)
+		sugarLogger.Fatalln(err)
 	}
 
-	// db.
-	pgdb, err := db.InitPostgresClient(cfg)
+	// init db.
+	pgdb, err := db.InitPostgresClient(cfg, sugarLogger)
 	if err != nil {
-		sugar.Warn(err)
+		sugarLogger.Warn(err)
 	}
 
-	// migrations.
-	sugar.Info("Running migrations...")
-	err = migrations.Up(pgdb)
-	if err != nil {
-		sugar.Warn(err)
+	// migrations make.
+	sugarLogger.Info("Running migrations...")
+	if err := migrations.Up(pgdb); err != nil {
+		sugarLogger.Warn(err)
 	}
 	defer func() {
 		migrations.Down(pgdb)
-		sugar.Info("Migrations down")
+		sugarLogger.Info("Migrations down")
 	}()
-	sugar.Info("Migrations applied successfully")
+	sugarLogger.Info("Migrations applied successfully")
 
-	// server.
-	s, err := server.NewServer(cfg, sugar, pgdb)
+	// server running.
+	svr, err := server.NewServer(cfg, sugarLogger, pgdb)
 	if err != nil {
-		sugar.Fatalln(err)
+		sugarLogger.Fatalln(err)
 	}
-	s.Run()
+	svr.Run()
 }

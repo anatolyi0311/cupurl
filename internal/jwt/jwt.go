@@ -1,80 +1,131 @@
 package jwt
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/anatolyi0311/cupurl/internal/model"
 	"github.com/golang-jwt/jwt/v4"
-	"go.uber.org/zap"
 )
 
-// Claims — структура утверждений, которая включает стандартные утверждения и
-// одно пользовательское UserID
+const (
+	secretKey = "super_secret_key_for_shortener"
+)
+
+var userIDCounter int
+
 type Claims struct {
+	UserID int `json:"user_id"`
 	jwt.RegisteredClaims
-	UserID int
 }
 
-const TokenExp = time.Hour * 3
+func createJWT(res http.ResponseWriter) error {
+	userIDCounter++
+	userID := userIDCounter
 
-// const SekretKey = "supersecretkey"
+	expirationTime := time.Now().Add(24 * time.Hour) // Токен на 24 часа
 
-func SetJWT(sekretKey string, userID int, logger zap.SugaredLogger) (string, error) {
-	tokenString, err := BuildJWTString(sekretKey, userID, logger)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	// logger.Info(tokenString)
-	return tokenString, err
-}
-
-// BuildJWTString создаёт токен и возвращает его в виде строки.
-func BuildJWTString(sekretKey string, userID int, logger zap.SugaredLogger) (string, error) {
-	// создаём новый токен с алгоритмом подписи HS256 и утверждениями — Claims
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			// когда создан токен
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp)),
-		},
-		// собственное утверждение
+	claims := &Claims{
 		UserID: userID,
-	})
-	// создаём строку токена
-	tokenString, err := token.SignedString([]byte(sekretKey))
-	if err != nil {
-		return "", err
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
 	}
-	// возвращаем строку токена
-	return tokenString, nil
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenStr, err := token.SignedString([]byte(secretKey)) // Подписание токена секретным ключом
+	if err != nil {
+		return fmt.Errorf("failed to create token %w", err)
+	}
+
+	http.SetCookie(res, &http.Cookie{
+		Name:    "jwt_token",
+		Value:   tokenStr,
+		Expires: expirationTime,
+		// Path:     "/",
+	})
+	return nil
 }
 
-// func getUserID(tokenString string) int {
-// 	// создаём экземпляр структуры с утверждениями
-// 	claims := &Claims{}
-// 	// парсим из строки токена tokenString в структуру claims
-// 	jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
-// 		return []byte(SECRET_KEY), nil
-// 	})
-// 	// возвращаем ID пользователя в читаемом виде
-// 	return claims.UserID
-// }
-
-func GetUserID(sekretKey, tokenString string, logger zap.SugaredLogger) int {
-	claims := &Claims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims,
-		func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-			}
-			return []byte(sekretKey), nil
-		})
+func validateJWT(res http.ResponseWriter, req *http.Request) error {
+	cookie, err := req.Cookie("jwt_token")
 	if err != nil {
-		return -1
+		return createJWT(res)
 	}
+
+	tokenStr := cookie.Value
+	claims := &Claims{}
+
+	token, err := jwt.ParseWithClaims(
+		tokenStr,
+		claims,
+		func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(secretKey), nil
+		},
+	)
+
+	id := claims.UserID
+	if id < 1 {
+		return model.ErrEmptyUserID
+	}
+	if err != nil {
+		return fmt.Errorf("failed to parse token: %w", err)
+	}
+
 	if !token.Valid {
-		logger.Info("Token is not valid")
-		return -1
+		return fmt.Errorf("invalid token")
 	}
-	logger.Info("Token is valid")
-	return claims.UserID
+
+	return nil
+}
+
+func GetUserID(req *http.Request) (int, error) {
+	cookie, err := req.Cookie("jwt_token")
+	if err != nil {
+		return 0, err
+	}
+	tokenStr := cookie.Value
+	claims := &Claims{}
+
+	_, err = jwt.ParseWithClaims(
+		tokenStr,
+		claims,
+		func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(secretKey), nil
+		},
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	id := claims.UserID
+	if id < 1 {
+		return 0, model.ErrEmptyUserID
+	}
+	return id, nil
+}
+
+func Cookies(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := validateJWT(w, r); err != nil {
+			if errors.Is(err, model.ErrEmptyUserID) {
+				http.Error(w, "invalid JWT", http.StatusUnauthorized)
+				return
+			}
+			http.Error(w, "invalid JWT", http.StatusBadRequest)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

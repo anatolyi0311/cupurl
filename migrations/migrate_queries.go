@@ -18,26 +18,27 @@ const (
 		(
 			id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 			originalURL varchar(255) NOT NULL UNIQUE,                                                                
-			shortURL varchar(255)  NOT NULL UNIQUE                                         
+			shortURL varchar(255) NOT NULL UNIQUE,                                         
+			deletedFlag bool DEFAULT FALSE
 		);
 
 		-- Базовый индекс для поиска по originalURL
-		CREATE INDEX idx_cupurl_originalURL ON cupurl(originalURL);
+		--CREATE INDEX idx_cupurl_originalURL ON cupurl(originalURL);
 		-- Индекс для поиска по shortURL
-		CREATE INDEX idx_cupurl_shortURL ON cupurl(shortURL);
+		--CREATE INDEX idx_cupurl_shortURL ON cupurl(shortURL);
 
-		ALTER TABLE cupurl ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN;
+		--ALTER TABLE cupurl ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN;
 		--ALTER TABLE cupurl ADD COLUMN IF NOT EXISTS userID varchar(255);
 		
-		CREATE INDEX idx_cupurl_isDeleted ON cupurl(is_deleted);
+		--CREATE INDEX idx_cupurl_isDeleted ON cupurl(is_deleted);
 		--CREATE INDEX idx_cupurl_userID ON cupurl(userID);
 	`
 
 	dropTable = `
 		-- Откат создания индексов на столбец shortURL / originalURL
-		DROP INDEX IF EXISTS idx_cupurl_originalURL;
-		DROP INDEX IF EXISTS idx_cupurl_shortURL;
-		DROP INDEX IF EXISTS idx_cupurl_isDeleted;
+		--DROP INDEX IF EXISTS idx_cupurl_originalURL;
+		--DROP INDEX IF EXISTS idx_cupurl_shortURL;
+		--DROP INDEX IF EXISTS idx_cupurl_isDeleted;
 		--DROP INDEX IF EXISTS idx_cupurl_userID;
 
 		-- Откат добавления столбца originalURL / shortURL
@@ -45,7 +46,7 @@ const (
 		--ALTER TABLE cupurl DROP COLUMN IF EXISTS shortURL; 
 
 		-- Откат создания таблицы
-		--DROP TABLE IF EXISTS cupurl;
+		DROP TABLE IF EXISTS cupurl;
 
 		--DELETE FROM cupurl WHERE originalURL = "" 
 		--DELETE FROM cupurl WHERE shortURL = "" 

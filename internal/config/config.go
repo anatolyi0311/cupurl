@@ -1,17 +1,21 @@
 package config
 
 import (
+	"crypto/aes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/anatolyi0311/cupurl/internal/service/random"
 	"go.uber.org/zap"
 )
 
 const (
 	addrPgDB = "postgres:5432"
+	KeySize  = 2 * aes.BlockSize //nolint:gomnd
 )
 
 type Config struct {
@@ -36,12 +40,16 @@ type Options struct {
 	SecretKey   string `env:"SECRET_KEY"`
 	HostDB      string
 	PortDB      string
+	User        string `env:"USER_ID"`
 	// UserDB      string
 	// NameDB      string
 	// PaswDB      string
 	// PathDB      string
 	// ParamsDB    map[string]string
-	Debug bool `env:"DEBUG"`
+	Debug         bool   `env:"DEBUG"`
+	EncryptionKey []byte `env:"ENCRYPTION_KEY"`
+	TrustedSubnet string `json:"trusted_subnet"`
+	EnableHTTPS   bool   `json:"enable_https"`
 }
 
 func NewConfig(logger zap.SugaredLogger) (*Config, error) {
@@ -56,6 +64,11 @@ func NewConfig(logger zap.SugaredLogger) (*Config, error) {
 
 func newOpts(_ zap.SugaredLogger) (*Options, error) {
 	/* ... */
+	key := []byte(os.Getenv("ENCRYPTION_KEY"))
+	if len(key) == 0 {
+		key = generateNewEncryptionKey()
+	}
+
 	opts, ok := parseEnv()
 	if ok {
 		return opts, nil
@@ -67,6 +80,8 @@ func newOpts(_ zap.SugaredLogger) (*Options, error) {
 	// var secretKey = flag.String("sk", "", "secret key")
 	// _ = secretKey
 	flag.Parse()
+
+	opts.EncryptionKey = key
 
 	if opts.Addr == "" {
 		opts.Addr = *addr
@@ -148,4 +163,41 @@ func parseEnv() (*Options, bool) {
 		opts.AddrDB = envAddrDB
 	}
 	return opts, (opts.Addr != "" && opts.BaseURL != "" && opts.AddrDB != "")
+}
+
+// generateNewEncryptionKey generates a random key of the specified KeySize.
+func generateNewEncryptionKey() []byte {
+	randomGenerator := random.TrulyRandomGenerator{}
+	randomKey, err := randomGenerator.GenerateRandomBytes(KeySize)
+	if err != nil {
+		randomKey = make([]byte, KeySize)
+	}
+	return randomKey
+}
+
+func (c *Config) parseConfigFile(configPath string) (Config, error) {
+	if configPath == "" {
+		return Config{}, nil
+	}
+
+	f, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Config{}, fmt.Errorf("config file not found at: %s", configPath)
+		}
+		return Config{}, err
+	}
+
+	configFromFile := Config{}
+
+	err = json.Unmarshal(f, &configFromFile)
+	return configFromFile, err
+}
+
+// If the environment variable exists, return it, otherwise return the fallback value.
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
