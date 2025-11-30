@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -40,7 +41,7 @@ type Server struct {
 	su     srv.CaseURL
 	logger zap.SugaredLogger
 	// db     *sql.DB
-	cookie string
+	jwt string
 }
 
 func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Server, error) {
@@ -62,7 +63,7 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 		return nil, err
 	}
 	userID := 1
-	setJWT, err := jwt.SetJWT(userID, logger)
+	setJWT, err := jwt.SetJWT(cfg.Opts.SecretKey, userID, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 		su:     su,
 		logger: logger,
 		// db:     db,
-		cookie: setJWT,
+		jwt: setJWT,
 	}
 	server.router()
 	return server, nil
@@ -93,9 +94,9 @@ func (s *Server) Run() {
 		"addr", s.cfg.Opts.Addr,
 		"base", s.cfg.Opts.BaseURL,
 		"addrDB", s.cfg.Opts.AddrDB,
-		"hostDB", s.cfg.Opts.HostDB,
-		"portDB", s.cfg.Opts.PortDB,
-		"userID", jwt.GetUserID(s.cookie, s.logger),
+		// "hostDB", s.cfg.Opts.HostDB,
+		// "portDB", s.cfg.Opts.PortDB,
+		"userID", jwt.GetUserID(s.cfg.Opts.SecretKey, s.jwt, s.logger),
 	)
 	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(s.route)); err != nil {
 		log.Fatalln(err)
@@ -200,18 +201,25 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// s.logger.Info("SetURL.shortHash: ", hash, string(body))
-	// cookie := &http.Cookie{
-	// 	HttpOnly: true,
-	// 	Value:    s.cookie,
-	// 	Name:     "access_token",
-	// }
-	// http.SetCookie(res, cookie)
-	res.Header().Set("Authorization", "Bearer "+s.cookie)
+	// DEBUG.
+	if s.cfg.Opts.Debug {
+		authorization := req.Header.Get("Authorization")
+		coocies := req.Cookies()
+		s.logger.Info("SetURL.hash: ", hash, " body:", string(body), " coocies:", coocies, " authorization:", authorization)
+	}
 
+	// ...
+	cookie := &http.Cookie{
+		HttpOnly: true,
+		Value:    s.jwt,
+		Name:     "access_token",
+	}
+	http.SetCookie(res, cookie)
+
+	res.Header().Set("Authorization", "Bearer "+s.jwt)
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(status)
-	res.Write([]byte(s.cfg.Opts.BaseURL + "/" + hash))
+	res.Write([]byte(s.FormatURL(hash)))
 }
 
 func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
@@ -305,8 +313,7 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "method must be GET", http.StatusBadRequest)
 		return
 	}
-
-	// contentType := req.Header.Get("Content-Type")
+	contentType := req.Header.Get("Content-Type")
 	// if contentType != "application/json" {
 	// 	http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
 	// 	return
@@ -318,6 +325,7 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// s.logger.Info("GetArrayURLJson.result: ", result)
 
 	response, err := json.Marshal(result)
 	if err != nil {
@@ -326,40 +334,43 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	cookie := &http.Cookie{
-		HttpOnly: true,
-		Value:    s.cookie,
-		Name:     "access_token",
-	}
-	http.SetCookie(res, cookie)
-	// res.Header().Set("Authorization", "Bearer "+s.cookie)
-
-	// coocies := req.Cookies()
-	// for _, coocie := range coocies {
-	// 	if coocie.Name == "access_token" && coocie.Value != s.cookie {
-	// 		http.Error(res, strconv.Itoa(jwt.GetUserID(s.cookie, s.logger)), http.StatusUnauthorized)
-	// 		return
+	status := http.StatusOK
+	// for _, r := range result {
+	// 	s.logger.Info("hash: ", r.Hash)
+	// 	if r.Hash == "" || r.ShortURL == "" {
+	// 		status = http.StatusNoContent
 	// 	}
 	// }
 
-	status := http.StatusOK
+	// AUTH.
 	authorization := req.Header.Get("Authorization")
-	if authorization != "" && authorization != "Bearer "+s.cookie || len(response) == 0 {
+	if authorization == "" && authorization != "Bearer "+s.jwt {
 		status = http.StatusNoContent
 	}
-	cooc := req.Cookies()
-	if len(cooc) == 0 {
-		status = http.StatusNoContent
-	}
-	for _, c := range cooc {
-		if c.Value != s.cookie {
-			status = http.StatusNoContent
+	// DEBUG.
+	if s.cfg.Opts.Debug {
+		coocies := req.Cookies()
+		if len(coocies) > 0 {
+			for _, coocie := range coocies {
+				userID := jwt.GetUserID(s.cfg.Opts.SecretKey, s.jwt, s.logger)
+				if coocie.Name == "access_token" && coocie.Value != s.jwt && userID != 1 {
+					http.Error(res, strconv.Itoa(userID), http.StatusUnauthorized)
+				}
+			}
 		}
+		s.logger.Info("GetArrayURLJson.coocies: ", coocies, " authorization:", authorization, " contentType:", contentType)
 	}
 
-	s.logger.Info("GetArrayURLJson.result: ", result)
-	s.logger.Info("GetArrayURLJson.resCookiesult: ", cooc)
+	// ...
+	cookie := &http.Cookie{
+		HttpOnly: true,
+		Value:    s.jwt,
+		Name:     "access_token",
+	}
+	http.SetCookie(res, cookie)
 
+	// ...
+	res.Header().Set("Authorization", "Bearer "+s.jwt)
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(status)
 	res.Write(response)
@@ -377,4 +388,8 @@ func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
 		status = http.StatusInternalServerError
 	}
 	res.WriteHeader(status)
+}
+
+func (s *Server) FormatURL(hash string) string {
+	return s.cfg.Opts.BaseURL + "/" + hash
 }

@@ -16,10 +16,11 @@ type Claims struct {
 }
 
 const TokenExp = time.Hour * 3
-const SekretKey = "supersecretkey"
 
-func SetJWT(userID int, logger zap.SugaredLogger) (string, error) {
-	tokenString, err := BuildJWTString(userID, logger)
+// const SekretKey = "supersecretkey"
+
+func SetJWT(sekretKey string, userID int, logger zap.SugaredLogger) (string, error) {
+	tokenString, err := BuildJWTString(sekretKey, userID, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -28,7 +29,7 @@ func SetJWT(userID int, logger zap.SugaredLogger) (string, error) {
 }
 
 // BuildJWTString создаёт токен и возвращает его в виде строки.
-func BuildJWTString(userID int, logger zap.SugaredLogger) (string, error) {
+func BuildJWTString(sekretKey string, userID int, logger zap.SugaredLogger) (string, error) {
 	// создаём новый токен с алгоритмом подписи HS256 и утверждениями — Claims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -39,7 +40,7 @@ func BuildJWTString(userID int, logger zap.SugaredLogger) (string, error) {
 		UserID: userID,
 	})
 	// создаём строку токена
-	tokenString, err := token.SignedString([]byte(SekretKey))
+	tokenString, err := token.SignedString([]byte(sekretKey))
 	if err != nil {
 		return "", err
 	}
@@ -58,14 +59,14 @@ func BuildJWTString(userID int, logger zap.SugaredLogger) (string, error) {
 // 	return claims.UserID
 // }
 
-func GetUserID(tokenString string, logger zap.SugaredLogger) int {
+func GetUserID(sekretKey, tokenString string, logger zap.SugaredLogger) int {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 			}
-			return []byte(SekretKey), nil
+			return []byte(sekretKey), nil
 		})
 	if err != nil {
 		return -1

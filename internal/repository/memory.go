@@ -41,7 +41,7 @@ func (s *Storage) getArrayMemory(logger zap.SugaredLogger) ([]model.GetArrayURLR
 	var res []model.GetArrayURLRequest
 	for key, val := range s.memoryCache {
 		shortURL := s.cfg.Opts.BaseURL + "/" + key
-		res = append(res, model.GetArrayURLRequest{OriginalURL: val, ShortURL: shortURL})
+		res = append(res, model.GetArrayURLRequest{OriginalURL: val, ShortURL: shortURL, Hash: key})
 	}
 
 	if len(res) == 0 {

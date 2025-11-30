@@ -87,6 +87,7 @@ func (s *Storage) getArrayPsql(logger zap.SugaredLogger) ([]model.GetArrayURLReq
 			return nil, err
 		}
 		shortURL := s.cfg.Opts.BaseURL + "/" + v.ShortURL
+		v.Hash = v.ShortURL
 		v.ShortURL = shortURL
 
 		res = append(res, v)

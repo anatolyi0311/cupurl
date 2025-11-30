@@ -41,6 +41,7 @@ type Options struct {
 	// PaswDB      string
 	// PathDB      string
 	// ParamsDB    map[string]string
+	Debug bool `env:"DEBUG"`
 }
 
 func NewConfig(logger zap.SugaredLogger) (*Config, error) {
@@ -110,6 +111,7 @@ func getEnvVars() []string {
 		os.Getenv("FILE_STORAGE_PATH"),
 		os.Getenv("DATABASE_DSN"),
 		os.Getenv("SECRET_KEY"),
+		os.Getenv("DEBUG"),
 	}
 }
 
@@ -119,11 +121,20 @@ func parseEnv() (*Options, bool) {
 	envAddr,
 		envBaseURL,
 		envStorageFile,
-		envAddrDB := envs[0], envs[1], envs[2], envs[3]
+		envAddrDB,
+		secretKey,
+		debug := envs[0], envs[1], envs[2], envs[3], envs[4], envs[5]
 
 	opts := &Options{
 		// StorageFile: "storage.json",
 	}
+	if secretKey != "" {
+		opts.SecretKey = secretKey
+	}
+	if debug != "" && debug == "true" {
+		opts.Debug = true
+	}
+
 	if envStorageFile != "" {
 		opts.StorageFile = envStorageFile
 	}

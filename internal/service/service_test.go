@@ -55,7 +55,7 @@ func newWrapService() *Service {
 
 func TestServiceSetURL(t *testing.T) {
 	hashMask := sha256.Sum256([]byte(maskURL))
-	hashEmpty := sha256.Sum256([]byte(""))
+	// hashEmpty := sha256.Sum256([]byte(""))
 	tests := []struct {
 		name     string
 		url      string
@@ -73,8 +73,8 @@ func TestServiceSetURL(t *testing.T) {
 		{
 			name:     "empty url",
 			url:      "",
-			wantHash: fmt.Sprintf("%x", hashEmpty[:sizeHash]),
-			wantErr:  nil,
+			wantHash: "",                          // fmt.Sprintf("%x", hashEmpty[:sizeHash])
+			wantErr:  fmt.Errorf("incorrect url"), // nil
 			repoIsOn: true,
 		},
 	}
@@ -116,7 +116,7 @@ func TestServiceGetURL(t *testing.T) {
 			name:     "empty url",
 			wantHash: "",
 			wantURL:  "",
-			wantErr:  fmt.Errorf(" not found"),
+			wantErr:  fmt.Errorf("incorrect id"), // " not found"
 			repoIsOn: true,
 		},
 	}

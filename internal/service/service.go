@@ -42,15 +42,12 @@ func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseU
 }
 
 func (s *Service) SetURL(urlTo string, logger zap.SugaredLogger) (string, error) {
-
+	// ...
 	urlTo = strings.TrimSpace(urlTo)
-	// if urlTo == "" {
-	// 	logger.Infow(
-	// 		"Service.SetURL",
-	// 		"url.hash.empty", urlTo,
-	// 	)
-	// 	// return "", fmt.Errorf("incorrect url")
-	// }
+	if urlTo == "" {
+		logger.Warn("url.hash.empty")
+		return "", fmt.Errorf("incorrect url")
+	}
 
 	hash := sha256.Sum256([]byte(urlTo))
 
@@ -62,18 +59,20 @@ func (s *Service) SetURL(urlTo string, logger zap.SugaredLogger) (string, error)
 
 	shortHash := fmt.Sprintf("%x", combinedHash[:sizeHash])
 	shortHash, err := s.repo.Set(urlTo, shortHash, logger)
-	// if shortHash == "" {
-	// 	return shortHash, err
-	// }
-	// logger.Info("Set.URL.hash: ", shortHash)
+	if shortHash == "" {
+		logger.Warn("url.hash.empty")
+		return "", fmt.Errorf("incorrect id")
+	}
+
+	// logger.Info("Set.URL.hash: ", shortHash, " urlTo:", urlTo)
 	return shortHash, err
 }
 
 func (s *Service) GetURL(hash string, logger zap.SugaredLogger) (string, error) {
 	hash = strings.TrimSpace(hash)
-	// if hash == "" {
-	// 	return "", fmt.Errorf("incorrect id")
-	// }
+	if hash == "" {
+		return "", fmt.Errorf("incorrect id")
+	}
 	// logger.Info("Get.URL.hash: ", hash)
 	return s.repo.Get(hash, logger)
 }
@@ -96,4 +95,8 @@ func (s *Service) GetArrayURL(logger zap.SugaredLogger) ([]model.GetArrayURLRequ
 
 func (s *Service) Ping() error {
 	return s.repo.Ping()
+}
+
+func (s *Service) FormatURL(baseURL, hash string) string {
+	return baseURL + "/" + hash
 }

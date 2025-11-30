@@ -110,7 +110,7 @@ func (s *Storage) getArrayFromFile(logger zap.SugaredLogger) ([]model.GetArrayUR
 	var res []model.GetArrayURLRequest
 	for _, h := range s.s {
 		shortURL := s.cfg.Opts.BaseURL + "/" + h.ShortURL
-		res = append(res, model.GetArrayURLRequest{OriginalURL: h.OriginalURL, ShortURL: shortURL})
+		res = append(res, model.GetArrayURLRequest{OriginalURL: h.OriginalURL, ShortURL: shortURL, Hash: h.ShortURL})
 	}
 	if len(res) == 0 {
 		return []model.GetArrayURLRequest{}, fmt.Errorf("%s not found", "")
