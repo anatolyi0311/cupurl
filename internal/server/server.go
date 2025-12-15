@@ -72,8 +72,8 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 }
 
 func (s *Server) router() {
-	s.route.Use(handler.Compress)
-	s.route.Use(jwt.Cookies)
+	// s.route.Use(handler.Compress)
+	// s.route.Use(jwt.Cookies)
 
 	s.route.Post("/", handler.WithLogging(s.SetURLHandler, s.logger))
 	s.route.Post("/api/shorten", handler.WithLogging(s.SetJSONHandler, s.logger))
@@ -98,7 +98,7 @@ func (s *Server) Run() {
 	// 	Handler:           s.route,
 	// 	ReadHeaderTimeout: 1 * time.Second,
 	// }
-	if err := http.ListenAndServe(s.cfg.Opts.Addr, s.route); err != nil {
+	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(jwt.Cookies(s.route))); err != nil {
 		s.logger.Warn("err", err.Error())
 		s.logger.Fatalln(err)
 	}
