@@ -288,7 +288,6 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 
 	result, err := s.su.GetArrayURL()
 	s.logger.Info("GetArrayURLJson.result: ", result)
-	s.logger.Info("GetArrayURLJson.err: ", err.Error())
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
