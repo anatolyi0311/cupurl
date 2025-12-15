@@ -75,16 +75,13 @@ func (s *Storage) GetArray(logger zap.SugaredLogger) ([]model.ShortURL, error) {
 		return r, err
 	}
 	if s.hasFile {
-		logger.Info("getarray file")
 		return s.getArrayFromFile(logger)
 	}
-	logger.Info("getarray mem")
 	return s.getArrayMemory(logger)
 }
 
 func (s *Storage) Set(shortURL model.ShortURL, logger zap.SugaredLogger) (model.ShortURL, error) {
 	if s.db != nil {
-		logger.Info("set.db: ", shortURL)
 		return s.setPsql(shortURL, logger)
 	}
 	if s.hasFile {
@@ -104,27 +101,17 @@ func (s *Storage) SetArrayURL(req []model.SetArrayURLRequest, logger zap.Sugared
 }
 
 func (s *Storage) Delete(hash string, logger zap.SugaredLogger) error {
-	// logger.Info("DeleteArray.urls: ", len(toDel), toDel)
-	// if len(toDel) == 0 {
-	// 	return nil
-	// }
 	if s.db != nil {
-		// err := s.DeleteUrls(ctx, toDel, logger)
 		err := s.DeleteDB(hash)
 		return err
 	}
 	if s.hasFile {
 		return s.DeleteFile(hash, logger)
 	}
-
 	return s.DeleteMem(hash)
 }
 
 func (s *Storage) DeleteArray(ctx context.Context, toDel []model.ShortURL, logger zap.SugaredLogger) error {
-	// logger.Info("DeleteArray.urls: ", len(toDel), toDel)
-	// if len(toDel) == 0 {
-	// 	return nil
-	// }
 	if s.db != nil {
 		err := s.DeleteUrls(ctx, toDel, logger)
 		return err

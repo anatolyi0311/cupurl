@@ -214,7 +214,6 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-	// s.logger.Info("GetURL.url: ", url)
 
 	res.Header().Set("Location", url.OriginalURL)
 	res.WriteHeader(http.StatusTemporaryRedirect)
@@ -265,29 +264,23 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
-	s.logger.Info("GetArrayURLJson: ", req.Method)
-
 	if req.Method != http.MethodGet {
 		http.Error(res, "method must be GET", http.StatusBadRequest)
 		return
 	}
-
-	_, err := jwt.GetUserID(req)
-	if err != nil {
-		s.logger.Warn("GetArrayURLJson.err.ID: ", req.Method)
-		http.Error(res, err.Error(), http.StatusNoContent)
-		return
-	}
-
-	contentType := req.Header.Get("Content-Type")
+	// contentType := req.Header.Get("Content-Type")
 	// if contentType != "application/json" {
 	// 	http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
 	// 	return
 	// }
-	s.logger.Info("GetArrayURLJson.contentType: ", contentType)
+
+	_, err := jwt.GetUserID(req)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusNoContent)
+		return
+	}
 
 	result, err := s.su.GetArrayURL()
-	s.logger.Info("GetArrayURLJson.result: ", result)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -347,23 +340,23 @@ func (s *Server) DeleteArrayURLJson(res http.ResponseWriter, req *http.Request) 
 	res.WriteHeader(http.StatusAccepted)
 }
 
-// func (s *Server) Stats(w http.ResponseWriter, r *http.Request) {
-// 	stats, err := s.su.GetStats(r.Context())
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// 	s.logger.Info("start.Stats", stats)
-// 	out, err := json.Marshal(stats)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// 	w.Header().Set("Content-Type", "application/json")
-// 	if _, err = w.Write(out); err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 	}
-// }
+func (s *Server) Stats(w http.ResponseWriter, r *http.Request) {
+	stats, err := s.su.GetStats(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.logger.Info("start.Stats", stats)
+	out, err := json.Marshal(stats)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if _, err = w.Write(out); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
 
 func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {

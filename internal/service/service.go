@@ -52,15 +52,12 @@ func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseU
 }
 
 func (s *Service) SetURL(urlTo string) (model.ShortURL, error) {
-	// ...
 	urlTo = strings.TrimSpace(urlTo)
 	if urlTo == "" {
 		s.logger.Warn("url.hash.empty")
 		return model.ShortURL{}, fmt.Errorf("incorrect url")
 	}
-
 	hash := sha256.Sum256([]byte(urlTo))
-
 	// To unique.
 	now := time.Now()
 	seconds := now.Unix() // Unix timestamp in seconds
@@ -73,8 +70,6 @@ func (s *Service) SetURL(urlTo string) (model.ShortURL, error) {
 		s.logger.Warn("url.hash.empty")
 		return model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
-
-	// logger.Info("Set.URL.hash: ", shortHash, " urlTo:", urlTo)
 	return shortHash, err
 }
 
@@ -83,10 +78,7 @@ func (s *Service) GetURL(hash string) (model.ShortURL, error) {
 	if hash == "" {
 		return model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
-	// logger.Info("Get.URL.hash: ", hash)
 	originalURL, err := s.repo.Get(hash, s.logger)
-	// originalURL.DeletedFlag = false
-	// if originalURL == "" {}
 	return originalURL, err
 }
 
