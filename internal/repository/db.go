@@ -38,7 +38,7 @@ func (s *Storage) getPsql(hash string, logger zap.SugaredLogger) (model.ShortURL
 	var isDeleted bool
 	err := s.db.QueryRow(queryGetURL, hash).Scan(&originalURL, &isDeleted)
 	if isDeleted {
-		return model.ShortURL{}, errors.New("url is deleted")
+		return model.ShortURL{OriginalURL: "", ShortURL: ""}, model.ErrDeletedURL
 	}
 	if s.cfg.Opts.Debug {
 		logger.Info("getPsql", hash, originalURL)
@@ -46,9 +46,9 @@ func (s *Storage) getPsql(hash string, logger zap.SugaredLogger) (model.ShortURL
 	if err != nil {
 		logger.Warn("getPsql.ERROR")
 		if errors.Is(err, sql.ErrNoRows) {
-			return model.ShortURL{}, fmt.Errorf("URL not found")
+			return model.ShortURL{OriginalURL: "", ShortURL: ""}, fmt.Errorf("URL not found")
 		}
-		return model.ShortURL{}, fmt.Errorf("database error: %w", err)
+		return model.ShortURL{OriginalURL: "", ShortURL: ""}, fmt.Errorf("database error: %w", err)
 	}
 
 	return model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash}, nil
