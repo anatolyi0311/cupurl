@@ -19,7 +19,7 @@ func InitPostgresClient(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, 
 	if err != nil {
 		return nil, err
 	}
-	cfg.Opts.User = options[2]
+	// cfg.Opts.User = options[2]
 
 	database, err := sql.Open("postgres", opts)
 	if err != nil {

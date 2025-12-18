@@ -32,9 +32,9 @@ func (m *MockCaseURL) GetArrayURL() ([]model.ShortURL, error) {
 
 func (m *MockCaseURL) DeleteArrayURL(hash []string) {}
 
-func (m *MockCaseURL) DeleteUrls(ctx context.Context, _ []string, userID string) {}
+func (m *MockCaseURL) DeleteUrls(ctx context.Context, req *http.Request, _ []string, userID int) {}
 
-func (m *MockCaseURL) SetArrayURL(_ []model.SetArrayURLRequest) ([]model.ShortURL, error) {
+func (m *MockCaseURL) SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error) {
 	return make([]model.ShortURL, 0), fmt.Errorf("")
 }
 
@@ -55,12 +55,12 @@ func newWrapServer() *Server {
 	}
 }
 
-func (m *MockCaseURL) GetURL(hash string) (model.ShortURL, error) {
+func (m *MockCaseURL) GetURL(hash string, userID int) (model.ShortURL, error) {
 	args := m.Called(hash)
 	return model.ShortURL{OriginalURL: args.String(0)}, args.Error(1)
 }
 
-func (m *MockCaseURL) SetURL(url string) (model.ShortURL, error) {
+func (m *MockCaseURL) SetURL(url string, userID int) (model.ShortURL, error) {
 	args := m.Called(url)
 	return model.ShortURL{ShortURL: args.String(0)}, args.Error(1)
 }

@@ -40,7 +40,7 @@ type Options struct {
 	SecretKey   string `env:"SECRET_KEY"`
 	HostDB      string
 	PortDB      string
-	User        string `env:"USER_ID"`
+	User        int `env:"USER_ID"`
 	// UserDB      string
 	// NameDB      string
 	// PaswDB      string
@@ -77,8 +77,7 @@ func newOpts(_ zap.SugaredLogger) (*Options, error) {
 	var baseURL = flag.String("b", "localhost:8080", "value before short URL")
 	var storageFile = flag.String("f", "", "file for save data") // storage.json
 	var psqlHost = flag.String("d", "", "psql data")
-	// var secretKey = flag.String("sk", "", "secret key")
-	// _ = secretKey
+
 	flag.Parse()
 
 	opts.EncryptionKey = key
@@ -94,6 +93,9 @@ func newOpts(_ zap.SugaredLogger) (*Options, error) {
 	}
 	if opts.AddrDB == "" {
 		opts.AddrDB = *psqlHost
+	}
+	if opts.SecretKey == "" {
+		opts.SecretKey = "super_secret_key_for_shortener"
 	}
 	if _, err := url.Parse("https://" + opts.Addr); err != nil {
 		return nil, fmt.Errorf("incorrect parametr `-a` %s", opts.Addr)

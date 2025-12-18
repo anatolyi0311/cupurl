@@ -4,26 +4,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/anatolyi0311/cupurl/internal/model"
 	"github.com/golang-jwt/jwt/v4"
 )
 
-const (
-	secretKey = "super_secret_key_for_shortener"
-)
-
-var userIDCounter int
+var userIDCounter atomic.Int64
 
 type Claims struct {
 	UserID int `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
-func createJWT(res http.ResponseWriter) error {
-	userIDCounter++
-	userID := userIDCounter
+func createJWT(res http.ResponseWriter, secretKey string) error {
+	userID := int(userIDCounter.Add(1))
 
 	expirationTime := time.Now().Add(24 * time.Hour) // Токен на 24 часа
 
@@ -48,13 +44,14 @@ func createJWT(res http.ResponseWriter) error {
 		Expires: expirationTime,
 		// Path:     "/",
 	})
+	fmt.Println("...createJWT.tokenStr", tokenStr, "userID", userID)
 	return nil
 }
 
-func validateJWT(res http.ResponseWriter, req *http.Request) error {
+func validateJWT(res http.ResponseWriter, req *http.Request, secretKey string) error {
 	cookie, err := req.Cookie("jwt_token")
 	if err != nil {
-		return createJWT(res)
+		return createJWT(res, secretKey)
 	}
 
 	tokenStr := cookie.Value
@@ -86,7 +83,7 @@ func validateJWT(res http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
-func GetUserID(req *http.Request) (int, error) {
+func GetUserID(res http.ResponseWriter, req *http.Request, secretKey string) (int, error) {
 	cookie, err := req.Cookie("jwt_token")
 	if err != nil {
 		return 0, err
@@ -115,9 +112,9 @@ func GetUserID(req *http.Request) (int, error) {
 	return id, nil
 }
 
-func Cookies(next http.Handler) http.Handler {
+func Cookies(next http.Handler, secretKey string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := validateJWT(w, r); err != nil {
+		if err := validateJWT(w, r, secretKey); err != nil {
 			if errors.Is(err, model.ErrEmptyUserID) {
 				http.Error(w, "invalid JWT", http.StatusUnauthorized)
 				return

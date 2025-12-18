@@ -2,8 +2,8 @@ package repository
 
 const (
 	querySetURL = `
-		INSERT INTO cupurl (originalURL, shortURL) 
-        VALUES ($1, $2)
+		INSERT INTO cupurl (originalURL, shortURL, userID) 
+        VALUES ($1, $2, $3)
         ON CONFLICT (originalURL) 
         DO NOTHING;
 	`

@@ -48,8 +48,8 @@ func main() {
 		sugarLogger.Warn(err)
 	}
 	defer func() {
-		migrations.Down(pgdb)
-		sugarLogger.Info("Migrations down")
+		// migrations.Down(pgdb)
+		// sugarLogger.Info("Migrations down")
 	}()
 	sugarLogger.Info("Migrations applied successfully")
 

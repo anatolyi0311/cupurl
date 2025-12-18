@@ -10,10 +10,10 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger) (model.ShortURL, error) {
-	key := string(s.cfg.Opts.EncryptionKey)
-	logger.Info("db.set.short", " user.key:", key)
-	result, err := s.db.Exec(querySetURL, shortURL.OriginalURL, shortURL.ShortURL)
+func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger, userID int) (model.ShortURL, error) {
+	// key := string(s.cfg.Opts.EncryptionKey)
+	logger.Info("db.set.short", " user.id: ", userID, " hash: ", shortURL.ShortURL)
+	result, err := s.db.Exec(querySetURL, shortURL.OriginalURL, shortURL.ShortURL, userID)
 	if err != nil {
 		return model.ShortURL{}, err
 	}
@@ -22,12 +22,12 @@ func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger) (mo
 		return model.ShortURL{}, err
 	}
 	if rowsAffected == 0 {
-		return model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL}, model.ErrURLAlreadyExists
+		return model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL, UserID: userID}, model.ErrURLAlreadyExists
 	}
-	return model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL}, nil
+	return model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL, UserID: userID}, nil
 }
 
-func (s *Storage) getPsql(hash string, _ zap.SugaredLogger) (model.ShortURL, error) {
+func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (model.ShortURL, error) {
 	// key := string(s.cfg.Opts.EncryptionKey)
 	// logger.Info("db.get.url", " user.key: ", key)
 	var originalURL string
@@ -42,11 +42,12 @@ func (s *Storage) getPsql(hash string, _ zap.SugaredLogger) (model.ShortURL, err
 		}
 		return model.ShortURL{OriginalURL: "", ShortURL: ""}, fmt.Errorf("database error: %w", err)
 	}
-	return model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash}, nil
+	return model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash, UserID: userID}, nil
 }
 
-func (s *Storage) setArrayPsql(req []model.SetArrayURLRequest, _ zap.SugaredLogger) ([]model.ShortURL, error) {
+func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
 	// key := string(s.cfg.Opts.EncryptionKey)
+
 	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return nil, err
@@ -54,8 +55,8 @@ func (s *Storage) setArrayPsql(req []model.SetArrayURLRequest, _ zap.SugaredLogg
 	defer tx.Rollback()
 
 	resp := []model.ShortURL{}
-	for _, item := range req {
-		_, err := tx.Exec(querySetURL, item.OriginalURL, item.ShortURL)
+	for _, item := range request {
+		_, err := tx.Exec(querySetURL, item.OriginalURL, item.ShortURL, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -63,6 +64,7 @@ func (s *Storage) setArrayPsql(req []model.SetArrayURLRequest, _ zap.SugaredLogg
 			ID:          item.ID,
 			ShortURL:    s.FormatURL(item.ShortURL),
 			OriginalURL: item.OriginalURL,
+			UserID:      userID,
 			// DeletedFlag: false,
 		})
 	}
@@ -112,7 +114,9 @@ func (s *Storage) DeleteDB(hash string) error {
 	return nil
 }
 
-func (s *Storage) DeleteUrls(_ context.Context, urls []model.ShortURL, logger zap.SugaredLogger) error {
+func (s *Storage) DeleteUrls(_ context.Context, urls []model.ShortURL, logger zap.SugaredLogger, userID int) error {
+	logger.Info("DeleteUrls.userID: ", userID, "...", s.cfg.Opts.User)
+
 	if len(urls) == 0 {
 		return nil
 	}

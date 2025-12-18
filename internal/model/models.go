@@ -12,20 +12,12 @@ type SetArrayURLRequest struct {
 	ID          string `json:"correlation_id"`
 	OriginalURL string `json:"original_url"`
 	ShortURL    string
+	UserID      int `json:"user_id"`
 }
 
 type SetArrayURLResponse struct {
 	ID  string `json:"correlation_id"`
 	URL string `json:"short_url"`
-}
-
-type GetArrayURLRequest struct {
-	// ID          string `json:"correlation_id"`
-	OriginalURL string `json:"original_url"`
-	ShortURL    string `json:"short_url"`
-	UserID      string `json:"user_id"`
-	DeletedFlag bool   `json:"is_deleted"` // is used to mark a record as deleted
-	Hash        string
 }
 
 type GetArrayURLResponse struct {
@@ -37,7 +29,7 @@ type ShortURL struct {
 	ID          string `json:"correlation_id"` // Hash
 	OriginalURL string `json:"original_url"`
 	ShortURL    string `json:"short_url"`
-	UserID      string `json:"user_id"`
+	UserID      int    `json:"user_id"`
 	CreatedByID string `json:"created_by"` // ID of the user who created the short URL
 	DeletedFlag bool   `json:"is_deleted"`
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -52,6 +53,7 @@ type Server struct {
 	cfg    *config.Config
 	route  *chi.Mux
 	su     srv.CaseURL
+	db     *sql.DB
 	logger zap.SugaredLogger
 	crypto crypto.Cryptographer // interface that we'll use to encrypt and decrypt values
 }
@@ -65,6 +67,7 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 		cfg:    cfg,
 		route:  chi.NewRouter(),
 		su:     su,
+		db:     db,
 		logger: logger,
 	}
 	server.router()
@@ -98,7 +101,7 @@ func (s *Server) Run() {
 	// 	Handler:           s.route,
 	// 	ReadHeaderTimeout: 1 * time.Second,
 	// }
-	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(jwt.Cookies(s.route))); err != nil {
+	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(jwt.Cookies(s.route, s.cfg.Opts.SecretKey))); err != nil {
 		s.logger.Warn("err", err.Error())
 		s.logger.Fatalln(err)
 	}
@@ -109,7 +112,6 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "method must be POST", http.StatusBadRequest)
 		return
 	}
-
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
@@ -130,7 +132,13 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	hash, err := s.su.SetURL(request.URL)
+	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	if err != nil {
+		userID = 1
+	}
+	s.logger.Info("SetJSONHandler.userID", userID, " body: ", string(body))
+
+	hash, err := s.su.SetURL(request.URL, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrURLAlreadyExists) {
 			hashJSON := model.SetURLJsonResponse{
@@ -166,7 +174,6 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "method must be POST", http.StatusBadRequest)
 		return
 	}
-
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "text/plain" {
 		http.Error(res, "Content-Type must be text/plain", http.StatusBadRequest)
@@ -180,7 +187,13 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
-	hash, err := s.su.SetURL(string(body))
+	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	if err != nil {
+		userID = 1
+	}
+	s.logger.Info("SetURLHandler.userID", userID, " body: ", string(body))
+
+	hash, err := s.su.SetURL(string(body), userID)
 	if err != nil {
 		if errors.Is(err, model.ErrURLAlreadyExists) {
 			res.Header().Set("Content-Type", "text/plain")
@@ -198,13 +211,21 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
+	s.logger.Info("get.url")
+
 	pathURL := chi.URLParam(req, "id")
 	if pathURL == "" {
 		pathURL = req.URL.Path
 	}
 	hash := strings.TrimPrefix(pathURL, "/")
 
-	url, err := s.su.GetURL(hash)
+	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	if err != nil {
+		userID = 1
+	}
+	s.logger.Info("GetURLHandler.userID: ", userID, " hash: ", hash)
+
+	url, err := s.su.GetURL(hash, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrDeletedURL) {
 			http.Error(res, err.Error(), http.StatusGone)
@@ -224,7 +245,6 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "method must be POST", http.StatusBadRequest)
 		return
 	}
-
 	contentType := req.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		http.Error(res, "Content-Type must be application/json", http.StatusBadRequest)
@@ -245,7 +265,13 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	result, err := s.su.SetArrayURL(request)
+	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	if err != nil {
+		userID = 1
+	}
+	s.logger.Info("GetURLHandler.userID", userID)
+
+	result, err := s.su.SetArrayURL(request, userID)
 	if err != nil {
 		s.logger.Errorln(err)
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -274,11 +300,13 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	// 	return
 	// }
 
-	_, err := jwt.GetUserID(req)
+	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusNoContent)
 		return
 	}
+	s.cfg.Opts.User = userID
+	s.logger.Info("GetArrayURLJson.userID: ", userID)
 
 	result, err := s.su.GetArrayURL()
 
@@ -329,13 +357,16 @@ func (s *Server) DeleteArrayURLJson(res http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	_, err = jwt.GetUserID(req)
+	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusNoContent)
 		return
 	}
+	s.cfg.Opts.User = userID
+	s.logger.Info("DeleteArrayURLJson.userID: ", userID, "...", s.cfg.Opts.User)
 
-	s.su.DeleteArrayURL(hashArray)
+	// s.su.DeleteArrayURL(hashArray)
+	s.su.DeleteUrls(context.Background(), req, hashArray, userID)
 
 	res.WriteHeader(http.StatusAccepted)
 }
