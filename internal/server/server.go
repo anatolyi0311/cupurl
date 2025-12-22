@@ -235,6 +235,7 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+	s.logger.Info("get.url: ", url)
 
 	res.Header().Set("Location", url.OriginalURL)
 	res.WriteHeader(http.StatusTemporaryRedirect)
