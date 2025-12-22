@@ -126,8 +126,8 @@ func (s *Storage) DeleteUrls(_ context.Context, urls []model.ShortURL, logger za
 	}
 	defer tx.Rollback()
 	for _, short := range urls {
-		logger.Info("   del: ", short)
-		_, err := tx.Exec(`update cupurl set deletedFlag = true where shortURL = $1`, short.ShortURL)
+		logger.Info("   del: ", short, userID)
+		_, err := tx.Exec(`update cupurl set deletedFlag = true where shortURL = $1 AND userID = $2`, short.ShortURL, userID)
 		if err != nil {
 			return err
 		}
