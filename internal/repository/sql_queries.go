@@ -19,6 +19,6 @@ const (
 	queryDeleteURL = `
 		UPDATE cupurl 
 		SET deletedFlag = true 
-		WHERE shortURL = $1;
+		WHERE shortURL = $1 AND userID = $2;
 	`
 )

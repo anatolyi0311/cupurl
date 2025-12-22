@@ -29,7 +29,7 @@ type CaseURL interface {
 	SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error)
 	Ping() error
 	GetArrayURL() ([]model.ShortURL, error)
-	// DeleteArrayURL(hash []string)
+	DeleteArrayURL(hash []string, userID int) // variant 2
 	DeleteUrls(ctx context.Context, req *http.Request, urls []string, userID int)
 	GetStats(ctx context.Context) (model.Stats, error)
 }
@@ -100,16 +100,16 @@ func (s *Service) GetArrayURL() ([]model.ShortURL, error) {
 	return s.repo.GetArray(s.logger)
 }
 
-// func (s *Service) DeleteArrayURL(hashArray []string) {
-// 	for _, hash := range hashArray {
-// 		go func(hash string) {
-// 			err := s.repo.Delete(hash, s.logger)
-// 			if err != nil {
-// 				s.logger.Warn(err)
-// 			}
-// 		}(hash)
-// 	}
-// }
+func (s *Service) DeleteArrayURL(hashArray []string, userID int) {
+	for _, hash := range hashArray {
+		go func(hash string) {
+			err := s.repo.Delete(hash, s.logger, userID)
+			if err != nil {
+				s.logger.Warn(err)
+			}
+		}(hash)
+	}
+}
 
 func (s *Service) DeleteUrls(ctx context.Context, req *http.Request, ids []string, userID int) {
 	done := make(chan struct{})
