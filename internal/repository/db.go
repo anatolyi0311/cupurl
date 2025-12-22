@@ -115,7 +115,7 @@ func (s *Storage) DeleteDB(hash string) error {
 }
 
 func (s *Storage) DeleteUrls(_ context.Context, urls []model.ShortURL, logger zap.SugaredLogger, userID int) error {
-	logger.Info("DeleteUrls.userID: ", userID, "...", s.cfg.Opts.User)
+	logger.Info("db.DeleteUrls.userID: ", userID, "...", s.cfg.Opts.User)
 
 	if len(urls) == 0 {
 		return nil
@@ -126,6 +126,7 @@ func (s *Storage) DeleteUrls(_ context.Context, urls []model.ShortURL, logger za
 	}
 	defer tx.Rollback()
 	for _, short := range urls {
+		logger.Info("   del: ", short)
 		_, err := tx.Exec(`update cupurl set deletedFlag = true where shortURL = $1`, short.ShortURL)
 		if err != nil {
 			return err

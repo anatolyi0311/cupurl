@@ -270,7 +270,7 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		userID = 1
 	}
-	s.logger.Info("GetURLHandler.userID", userID)
+	s.logger.Info("SetArrayURLJson.userID", userID)
 
 	result, err := s.su.SetArrayURL(request, userID)
 	if err != nil {
