@@ -100,7 +100,7 @@ func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse
 	return res, nil
 }
 func (s *Storage) DeleteDB(hash string, userID int) error {
-	result, err := s.db.Exec(queryDeleteURL, hash)
+	result, err := s.db.Exec(queryDeleteURL, hash, userID)
 	if err != nil {
 		return fmt.Errorf("failed delete %s; %w", hash, err)
 	}
