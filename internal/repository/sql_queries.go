@@ -17,8 +17,7 @@ const (
 		FROM cupurl;
 	`
 	queryDeleteURL = `
-		UPDATE cupurl 
-		SET deletedFlag = true 
+		DELETE FROM cupurl 
 		WHERE shortURL = $1 AND userID = $2;
 	`
 )
