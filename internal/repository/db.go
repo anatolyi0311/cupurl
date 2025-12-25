@@ -11,8 +11,6 @@ import (
 )
 
 func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger, userID int) (model.ShortURL, error) {
-	// key := string(s.cfg.Opts.EncryptionKey)
-	logger.Info("db.set.short", " user.id: ", userID, " hash: ", shortURL.ShortURL)
 	result, err := s.db.Exec(querySetURL, shortURL.OriginalURL, shortURL.ShortURL, userID)
 	if err != nil {
 		return model.ShortURL{}, err
@@ -28,8 +26,6 @@ func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger, use
 }
 
 func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (model.ShortURL, error) {
-	// key := string(s.cfg.Opts.EncryptionKey)
-	// logger.Info("db.get.url", " user.key: ", key)
 	var originalURL string
 	var isDeleted bool
 	err := s.db.QueryRow(queryGetURL, hash).Scan(&originalURL, &isDeleted)
@@ -46,8 +42,6 @@ func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (model.S
 }
 
 func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
-	// key := string(s.cfg.Opts.EncryptionKey)
-
 	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return nil, err
@@ -126,8 +120,7 @@ func (s *Storage) DeleteUrls(_ context.Context, urls []model.ShortURL, logger za
 	}
 	defer tx.Rollback()
 	for _, short := range urls {
-		logger.Info("   del: ", short, userID)
-		_, err := tx.Exec(`update cupurl set deletedFlag = true where shortURL = $1`, short.ShortURL)
+		_, err := tx.Exec(`update cupurl set deletedFlag = true where shortURL = $1 AND userID = $2`, short.ShortURL, userID)
 		if err != nil {
 			return err
 		}
