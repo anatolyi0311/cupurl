@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/anatolyi0311/cupurl/internal/service/random"
 	"go.uber.org/zap"
 )
 
@@ -47,7 +46,6 @@ type Options struct {
 	// PathDB      string
 	// ParamsDB    map[string]string
 	Debug         bool   `env:"DEBUG"`
-	EncryptionKey []byte `env:"ENCRYPTION_KEY"`
 	TrustedSubnet string `json:"trusted_subnet"`
 	EnableHTTPS   bool   `json:"enable_https"`
 }
@@ -63,12 +61,6 @@ func NewConfig(logger zap.SugaredLogger) (*Config, error) {
 }
 
 func newOpts(_ zap.SugaredLogger) (*Options, error) {
-	/* ... */
-	key := []byte(os.Getenv("ENCRYPTION_KEY"))
-	if len(key) == 0 {
-		key = generateNewEncryptionKey()
-	}
-
 	opts, ok := parseEnv()
 	if ok {
 		return opts, nil
@@ -79,8 +71,6 @@ func newOpts(_ zap.SugaredLogger) (*Options, error) {
 	var psqlHost = flag.String("d", "", "psql data")
 
 	flag.Parse()
-
-	opts.EncryptionKey = key
 
 	if opts.Addr == "" {
 		opts.Addr = *addr
@@ -165,16 +155,6 @@ func parseEnv() (*Options, bool) {
 		opts.AddrDB = envAddrDB
 	}
 	return opts, (opts.Addr != "" && opts.BaseURL != "" && opts.AddrDB != "")
-}
-
-// generateNewEncryptionKey generates a random key of the specified KeySize.
-func generateNewEncryptionKey() []byte {
-	randomGenerator := random.TrulyRandomGenerator{}
-	randomKey, err := randomGenerator.GenerateRandomBytes(KeySize)
-	if err != nil {
-		randomKey = make([]byte, KeySize)
-	}
-	return randomKey
 }
 
 func (c *Config) parseConfigFile(configPath string) (Config, error) {

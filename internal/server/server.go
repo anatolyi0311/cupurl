@@ -20,26 +20,12 @@ import (
 	"github.com/anatolyi0311/cupurl/internal/jwt"
 	"github.com/anatolyi0311/cupurl/internal/model"
 	srv "github.com/anatolyi0311/cupurl/internal/service"
-	"github.com/anatolyi0311/cupurl/internal/service/crypto"
 )
 
 const (
 	addr             = "localhost:8080"
 	UserIDCookieName = "shortener-user-id"
 )
-
-type ServerHTTP interface {
-	Run() error
-	Shutdown() error
-}
-
-func New(config *config.Config, ipChecker srv.IPCheckerInterface, service *srv.Service, svr Server) (Server, error) {
-	if config.Opts.EnableHTTPS {
-		return Server{}, nil //NewHTTPS(config, ipChecker, service)
-	} else {
-		return svr, nil //NewHTTP(config, ipChecker, service, svr )
-	}
-}
 
 type ResultURL struct {
 	Result string `json:"result" doc:"result"`
@@ -55,7 +41,6 @@ type Server struct {
 	su     srv.CaseURL
 	db     *sql.DB
 	logger zap.SugaredLogger
-	crypto crypto.Cryptographer // interface that we'll use to encrypt and decrypt values
 }
 
 func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Server, error) {
@@ -75,17 +60,18 @@ func NewServer(cfg *config.Config, logger zap.SugaredLogger, db *sql.DB) (*Serve
 }
 
 func (s *Server) router() {
-	// s.route.Use(handler.Compress)
-	// s.route.Use(jwt.Cookies)
+	s.route.Use(handler.HandLogger)
+	s.route.Use(handler.Compress)
+	s.route.Use(jwt.Cookies)
 
-	s.route.Post("/", handler.WithLogging(s.SetURLHandler, s.logger))
-	s.route.Post("/api/shorten", handler.WithLogging(s.SetJSONHandler, s.logger))
-	s.route.Post("/api/shorten/batch", handler.WithLogging(s.SetArrayURLJson, s.logger))
-	s.route.Get("/{id}", handler.WithLogging(s.GetURLHandler, s.logger))
-	s.route.Get("/ping", handler.WithLogging(s.PingDB, s.logger))
-	s.route.Get("/api/user/urls", handler.WithLogging(s.GetArrayURLJson, s.logger))
+	s.route.Post("/", s.SetURLHandler)
+	s.route.Post("/api/shorten", s.SetJSONHandler)
+	s.route.Post("/api/shorten/batch", s.SetArrayURLJson)
+	s.route.Get("/{id}", s.GetURLHandler)
+	s.route.Get("/ping", s.PingDB)
+	s.route.Get("/api/user/urls", s.GetArrayURLJson)
 	// s.route.Get("/api/internal/stats", handler.WithLogging(s.Stats, s.logger))
-	s.route.Delete("/api/user/urls", handler.WithLogging(s.DeleteArrayURLJson, s.logger))
+	s.route.Delete("/api/user/urls", s.DeleteArrayURLJson)
 }
 
 func (s *Server) Run() {
@@ -94,14 +80,13 @@ func (s *Server) Run() {
 		"addr", s.cfg.Opts.Addr,
 		"base", s.cfg.Opts.BaseURL,
 		"addrDB", s.cfg.Opts.AddrDB,
-		"key", s.cfg.Opts.EncryptionKey,
 	)
 	// httpServer := &http.Server{
 	// 	Addr:              s.cfg.Opts.Addr,
 	// 	Handler:           s.route,
 	// 	ReadHeaderTimeout: 1 * time.Second,
 	// }
-	if err := http.ListenAndServe(s.cfg.Opts.Addr, handler.Compress(jwt.Cookies(s.route, s.cfg.Opts.SecretKey))); err != nil {
+	if err := http.ListenAndServe(s.cfg.Opts.Addr, s.route); err != nil {
 		s.logger.Warn("err", err.Error())
 		s.logger.Fatalln(err)
 	}
@@ -132,7 +117,7 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		userID = 1
 	}
@@ -187,7 +172,7 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
-	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		userID = 1
 	}
@@ -219,7 +204,7 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	hash := strings.TrimPrefix(pathURL, "/")
 
-	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		userID = 1
 	}
@@ -266,7 +251,7 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		userID = 1
 	}
@@ -301,7 +286,7 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	// 	return
 	// }
 
-	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusNoContent)
 		return
@@ -358,7 +343,7 @@ func (s *Server) DeleteArrayURLJson(res http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	userID, err := jwt.GetUserID(res, req, s.cfg.Opts.SecretKey)
+	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusNoContent)
 		return

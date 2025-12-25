@@ -4,67 +4,55 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/sirupsen/logrus"
 )
 
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	responseData *responseData
+}
+
+type responseData struct {
+	status int
+	size   int
+}
+
+func HandLogger(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		responseData := &responseData{}
+		lw := loggingResponseWriter{
+			ResponseWriter: w,
+			responseData:   responseData,
+		}
+		h.ServeHTTP(&lw, r)
+
+		duration := time.Since(start)
+		logrus.Infoln(
+			"uri:", r.RequestURI,
+			"method:", r.Method,
+			"duration:", duration,
+			"status:", responseData.status,
+			"size:", responseData.size,
+		)
+	})
+}
+
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
-	// записываем ответ, используя оригинальный http.ResponseWriter
+	if r.responseData.status == 0 {
+		r.responseData.status = http.StatusOK
+	}
 	size, err := r.ResponseWriter.Write(b)
-	r.responseData.size += size // захватываем размер
+	r.responseData.size += size
 	return size, err
 }
 
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-	// записываем код статуса, используя оригинальный http.ResponseWriter
 	r.ResponseWriter.WriteHeader(statusCode)
-	r.responseData.status = statusCode // захватываем код статуса
+	r.responseData.status = statusCode
 }
 
-// WithLogging добавляет дополнительный код для регистрации сведений о запросе
-// и возвращает новый http.Handler.
-func WithLogging(h http.HandlerFunc, sugar zap.SugaredLogger) http.HandlerFunc {
-	logFn := func(w http.ResponseWriter, r *http.Request) {
-		// функция Now() возвращает текущее время
-		start := time.Now()
-
-		responseData := &responseData{
-			status: 0,
-			size:   0,
-		}
-		lw := loggingResponseWriter{
-			ResponseWriter: w, // встраиваем оригинальный http.ResponseWriter
-			responseData:   responseData,
-		}
-
-		// эндпоинт /ping
-		uri := r.RequestURI
-		// метод запроса
-		method := r.Method
-
-		// точка, где выполняется хендлер pingHandler
-		h.ServeHTTP(&lw, r) // обслуживание оригинального запроса
-
-		// Since возвращает разницу во времени между start
-		// и моментом вызова Since. Таким образом можно посчитать
-		// время выполнения запроса.
-		duration := time.Since(start)
-
-		// отправляем сведения о запросе в zap
-		if method == http.MethodGet {
-			sugar.Infoln(
-				"uri", uri,
-				"method", method,
-				"duration", duration,
-			)
-		}
-		if method == http.MethodPost {
-			sugar.Infoln(
-				"status", responseData.status, // получаем перехваченный код статуса ответа
-				"size", responseData.size, // получаем перехваченный размер ответа
-				"uri", uri,
-			)
-		}
-	}
-	// возвращаем функционально расширенный хендлер
-	return http.HandlerFunc(logFn)
+func (r *loggingResponseWriter) Header() http.Header {
+	return r.ResponseWriter.Header()
 }

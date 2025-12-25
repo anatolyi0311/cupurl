@@ -11,6 +11,10 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
+const (
+	secretKey = "super_secret_key_for_shortener"
+)
+
 var userIDCounter atomic.Int64
 
 type Claims struct {
@@ -18,7 +22,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func createJWT(res http.ResponseWriter, secretKey string) error {
+func createJWT(res http.ResponseWriter) error {
 	userID := int(userIDCounter.Add(1))
 
 	expirationTime := time.Now().Add(24 * time.Hour) // Токен на 24 часа
@@ -44,14 +48,13 @@ func createJWT(res http.ResponseWriter, secretKey string) error {
 		Expires: expirationTime,
 		// Path:     "/",
 	})
-	fmt.Println("...createJWT.tokenStr", tokenStr, "userID", userID)
 	return nil
 }
 
-func validateJWT(res http.ResponseWriter, req *http.Request, secretKey string) error {
+func validateJWT(res http.ResponseWriter, req *http.Request) error {
 	cookie, err := req.Cookie("jwt_token")
 	if err != nil {
-		return createJWT(res, secretKey)
+		return createJWT(res)
 	}
 
 	tokenStr := cookie.Value
@@ -83,7 +86,7 @@ func validateJWT(res http.ResponseWriter, req *http.Request, secretKey string) e
 	return nil
 }
 
-func GetUserID(res http.ResponseWriter, req *http.Request, secretKey string) (int, error) {
+func GetUserID(req *http.Request) (int, error) {
 	cookie, err := req.Cookie("jwt_token")
 	if err != nil {
 		return 0, err
@@ -112,9 +115,9 @@ func GetUserID(res http.ResponseWriter, req *http.Request, secretKey string) (in
 	return id, nil
 }
 
-func Cookies(next http.Handler, secretKey string) http.Handler {
+func Cookies(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := validateJWT(w, r, secretKey); err != nil {
+		if err := validateJWT(w, r); err != nil {
 			if errors.Is(err, model.ErrEmptyUserID) {
 				http.Error(w, "invalid JWT", http.StatusUnauthorized)
 				return
