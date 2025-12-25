@@ -103,33 +103,10 @@ func (s *Storage) DeleteDB(hash string, userID int) error {
 		return fmt.Errorf("failed delete %s; %w", hash, err)
 	}
 	if rowsAffected == 0 {
-		result, err = s.db.Exec(queryDeleteURL, hash, userID)
+		_, err = s.db.Exec(queryDeleteURL, hash, userID)
 		if err != nil {
 			return fmt.Errorf("failed delete %s; rows affected == 0", hash)
 		}
-	}
-	return nil
-}
-
-func (s *Storage) DeleteUrls(_ context.Context, urls []model.ShortURL, logger zap.SugaredLogger, userID int) error {
-	logger.Info("db.DeleteUrls.userID: ", userID, "...", s.cfg.Opts.User)
-
-	if len(urls) == 0 {
-		return nil
-	}
-	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	for _, short := range urls {
-		_, err := tx.Exec(`update cupurl set deletedFlag = true where shortURL = $1 AND userID = $2`, short.ShortURL, userID)
-		if err != nil {
-			return err
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return err
 	}
 	return nil
 }

@@ -18,7 +18,6 @@ type Repository interface {
 	Ping() error
 	SetArrayURL(request []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error)
 	GetArray(logger zap.SugaredLogger) ([]model.ShortURL, error)
-	DeleteArray(ctx context.Context, urls []model.ShortURL, logger zap.SugaredLogger, userID int) error
 	Delete(hash string, logger zap.SugaredLogger, userID int) error
 	GetUsersAndUrlsCount(ctx context.Context) (int, int, error)
 }
@@ -108,16 +107,6 @@ func (s *Storage) Delete(hash string, logger zap.SugaredLogger, userID int) erro
 		return s.DeleteFile(hash, logger)
 	}
 	return s.DeleteMem(hash)
-}
-
-func (s *Storage) DeleteArray(ctx context.Context, toDel []model.ShortURL, logger zap.SugaredLogger, userID int) error {
-	logger.Info("DeleteArray.userID: ", userID, " ... ", s.cfg.Opts.User)
-	logger.Info("DeleteArray: ", toDel)
-	if s.db != nil {
-		err := s.DeleteUrls(ctx, toDel, logger, userID)
-		return err
-	}
-	return nil
 }
 
 func (s *Storage) Ping() error {
