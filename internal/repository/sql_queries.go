@@ -16,8 +16,13 @@ const (
 		SELECT originalURL, shortURL 
 		FROM cupurl;
 	`
+	queryUpdateURL = `
+		UPDATE cupurl 
+		SET deletedFlag = true 
+		WHERE shortURL = $1 AND userID = $2;
+	`
 	queryDeleteURL = `
 		DELETE FROM cupurl 
-		WHERE shortURL = $1 AND userID = $2;
+		WHERE shortURL = $1 AND userID = $2 AND deletedFlag = true;
 	`
 )
