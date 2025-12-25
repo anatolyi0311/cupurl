@@ -391,13 +391,3 @@ func (s *Server) PingDB(res http.ResponseWriter, req *http.Request) {
 func (s *Server) FormatShortURL(hash string) string {
 	return s.cfg.Opts.BaseURL + "/" + hash
 }
-
-// func validateRequest(req *http.Request) (int, error) {
-// 	if req.Method != http.MethodDelete {
-// 		return http.StatusBadRequest, errors.New("method must be DELETE")
-// 	}
-// 	if req.Header.Get("Content-Type") != "application/json" {
-// 		return http.StatusBadRequest, errors.New("Content-Type must be application/json")
-// 	}
-// 	return http.StatusOK, nil
-// }
