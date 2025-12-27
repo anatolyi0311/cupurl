@@ -4,7 +4,7 @@ build:
 	cd cmd/shortener && go build -o shortener *.go
 
 test: build
-	~/Desktop/shortenertest -test.v -test.run=^TestIteration11$$ \
+	~/Desktop/shortenertest -test.v -test.run=^TestIteration15$$ \
 		-binary-path=cmd/shortener/shortener \
 		-source-path=. \
 		-database-dsn="postgres://iaaa:example@localhost:5432/cupurl?sslmode=disable"

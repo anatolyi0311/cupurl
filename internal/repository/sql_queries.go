@@ -21,8 +21,4 @@ const (
 		SET deletedFlag = true 
 		WHERE shortURL = $1 AND userID = $2;
 	`
-	queryDeleteURL = `
-		DELETE FROM cupurl 
-		WHERE shortURL = $1 AND userID = $2 AND deletedFlag = true;
-	`
 )
