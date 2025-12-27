@@ -297,11 +297,11 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(res, err.Error(), http.StatusNoContent)
+			http.Error(res, err.Error(), http.StatusGone)
 			return
 		}
 		s.logger.Errorln(err)
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(res, err.Error(), http.StatusGone)
 		return
 	}
 
