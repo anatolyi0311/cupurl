@@ -103,10 +103,7 @@ func (s *Storage) DeleteDB(hash string, userID int) error {
 		return fmt.Errorf("failed delete %s; %w", hash, err)
 	}
 	if rowsAffected == 0 {
-		_, err = s.db.Exec(queryDeleteURL, hash, userID)
-		if err != nil {
-			return fmt.Errorf("failed delete %s; rows affected == 0", hash)
-		}
+		return fmt.Errorf("failed delete %s; rows affected == 0", hash)
 	}
 	return nil
 }
