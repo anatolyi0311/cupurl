@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger, userID int) (model.ShortURL, error) {
-	result, err := s.db.Exec(querySetURL, shortURL.OriginalURL, shortURL.ShortURL, userID)
+	result, err := s.db.Exec(`INSERT INTO cupurl (originalURL, shortURL, userID) VALUES ($1, $2, $3) ON CONFLICT (originalURL) DO NOTHING;`, shortURL.OriginalURL, shortURL.ShortURL, userID)
 	if err != nil {
 		return model.ShortURL{}, err
 	}
@@ -28,20 +28,20 @@ func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger, use
 func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (model.ShortURL, error) {
 	var originalURL string
 	var isDeleted bool
-	err := s.db.QueryRow(queryGetURL, hash).Scan(&originalURL, &isDeleted)
+	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1;`, hash).Scan(&originalURL, &isDeleted)
 	if isDeleted {
-		return model.ShortURL{OriginalURL: "", ShortURL: ""}, model.ErrDeletedURL
+		return model.ShortURL{}, model.ErrDeletedURL
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return model.ShortURL{OriginalURL: "", ShortURL: ""}, fmt.Errorf("URL not found")
+			return model.ShortURL{}, fmt.Errorf("URL not found")
 		}
-		return model.ShortURL{OriginalURL: "", ShortURL: ""}, fmt.Errorf("database error: %w", err)
+		return model.ShortURL{}, fmt.Errorf("database error: %w", err)
 	}
 	return model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash, UserID: userID}, nil
 }
 
-func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
+func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, _ zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
 	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, logger zap.Su
 
 	resp := []model.ShortURL{}
 	for _, item := range request {
-		_, err := tx.Exec(querySetURL, item.OriginalURL, item.ShortURL, userID)
+		_, err := tx.Exec(`INSERT INTO cupurl (originalURL, shortURL, userID) VALUES ($1, $2, $3) ON CONFLICT (originalURL) DO NOTHING;`, item.OriginalURL, item.ShortURL, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -59,7 +59,6 @@ func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, logger zap.Su
 			ShortURL:    s.FormatURL(item.ShortURL),
 			OriginalURL: item.OriginalURL,
 			UserID:      userID,
-			// DeletedFlag: false,
 		})
 	}
 	if err := tx.Commit(); err != nil {
@@ -70,7 +69,7 @@ func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, logger zap.Su
 
 func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse, error) {
 	var res []model.GetArrayURLResponse
-	rows, err := s.db.Query(queryGetArrayURL)
+	rows, err := s.db.Query(`SELECT originalURL, shortURL FROM cupurl;`)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,10 @@ func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse
 	return res, nil
 }
 func (s *Storage) DeleteDB(hash string, userID int) error {
-	result, err := s.db.Exec(queryUpdateURL, hash, userID)
+	result, err := s.db.Exec(`
+		UPDATE cupurl 
+		SET deletedFlag = true 
+		WHERE shortURL = $1 AND userID = $2;`, hash, userID)
 	if err != nil {
 		return fmt.Errorf("failed delete %s; %w", hash, err)
 	}

@@ -86,7 +86,7 @@ func (s *Service) SetArrayURL(request []model.SetArrayURLRequest, userID int) ([
 		}
 		hash := sha256.Sum256([]byte(item.OriginalURL))
 		request[i].ShortURL = fmt.Sprintf("%x", hash[:8])
-		// req[i].UserID = userID
+		request[i].UserID = userID
 	}
 	return s.repo.SetArrayURL(request, s.logger, userID)
 }
