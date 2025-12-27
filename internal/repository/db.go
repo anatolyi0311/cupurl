@@ -92,13 +92,14 @@ func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse
 	}
 	return res, nil
 }
-func (s *Storage) DeleteDB(hash string, userID int) error {
+func (s *Storage) DeleteDB(hash string, userID int, logger zap.SugaredLogger) error {
 	var originalURL string
 	var isDeleted bool
 
 	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1 AND deletedFlag = true;`, hash).Scan(&originalURL, &isDeleted)
 	if err != nil {
-		return fmt.Errorf("%s", sql.ErrNoRows.Error())
+		logger.Warnf("%s", err)
+		return fmt.Errorf("%s", sql.ErrNoRows)
 	}
 
 	result, err := s.db.Exec(`
@@ -113,7 +114,7 @@ func (s *Storage) DeleteDB(hash string, userID int) error {
 		return fmt.Errorf("failed delete %s; %w", hash, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("%s", sql.ErrNoRows.Error())
+		return fmt.Errorf("%s", sql.ErrNoRows)
 	}
 	return nil
 }

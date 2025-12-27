@@ -100,7 +100,7 @@ func (s *Storage) SetArrayURL(request []model.SetArrayURLRequest, logger zap.Sug
 
 func (s *Storage) Delete(hash string, logger zap.SugaredLogger, userID int) error {
 	if s.db != nil {
-		err := s.DeleteDB(hash, userID)
+		err := s.DeleteDB(hash, userID, logger)
 		return err
 	}
 	if s.hasFile {
