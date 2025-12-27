@@ -216,7 +216,7 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 		s.logger.Error(err)
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(res, err.Error(), http.StatusGone)
 		return
 	}
 	s.logger.Info("get.url: ", url)
