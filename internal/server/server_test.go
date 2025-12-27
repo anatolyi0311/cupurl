@@ -107,7 +107,7 @@ func TestServerGetURL(t *testing.T) {
 			mockURL:   "",
 			mockError: fmt.Errorf("not found"),
 
-			expectedStatus:   http.StatusBadRequest,
+			expectedStatus:   http.StatusGone,
 			expectedLocation: "",
 		},
 	}
