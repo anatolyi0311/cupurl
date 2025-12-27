@@ -96,7 +96,7 @@ func (s *Storage) DeleteDB(hash string, userID int, logger zap.SugaredLogger) er
 	var originalURL string
 	var isDeleted bool
 
-	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1 AND deletedFlag = true;`, hash).Scan(&originalURL, &isDeleted)
+	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1 AND userID = $2;`, hash, userID).Scan(&originalURL, &isDeleted)
 	if err != nil {
 		logger.Warnf("%s", err)
 		return nil // fmt.Errorf("%s", sql.ErrNoRows)
