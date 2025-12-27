@@ -103,7 +103,7 @@ func (s *Storage) DeleteDB(hash string, userID int) error {
 		return fmt.Errorf(sql.ErrNoRows)
 	}
 	if rowsAffected == 0 {
-		return fmt.Error(sql.ErrNoRows)
+		return fmt.Errorf(sql.ErrNoRows)
 	}
 	return nil
 }
