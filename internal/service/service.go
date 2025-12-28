@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"runtime"
@@ -103,6 +104,9 @@ func (s *Service) DeleteArrayURL(hashArray []string, userID int) {
 	for _, hash := range hashArray {
 		go func(hash string) {
 			err := s.repo.Delete(hash, s.logger, userID)
+			if errors.Is(err, sql.ErrNoRows) {
+				return
+			}
 			if err != nil {
 				s.logger.Warn(err)
 			}
