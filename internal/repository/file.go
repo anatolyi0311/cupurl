@@ -59,7 +59,7 @@ func (s *Storage) loadFromFile(logger zap.SugaredLogger) error {
 	return nil
 }
 
-func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (model.ShortURL, error) {
+func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (*model.ShortURL, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -77,10 +77,10 @@ func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (model.S
 	})
 	err := s.saveToFile(logger)
 
-	return model.ShortURL{ShortURL: hash, OriginalURL: url, ID: hash}, err
+	return &model.ShortURL{ShortURL: hash, OriginalURL: url, ID: hash}, err
 }
 
-func (s *Storage) getFromFile(hash string, logger zap.SugaredLogger) (model.ShortURL, error) {
+func (s *Storage) getFromFile(hash string, logger zap.SugaredLogger) (*model.ShortURL, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -89,19 +89,19 @@ func (s *Storage) getFromFile(hash string, logger zap.SugaredLogger) (model.Shor
 			return item.OriginalURL != ""
 		})
 		if !exist {
-			return model.ShortURL{}, fmt.Errorf("%s not found", hash)
+			return nil, fmt.Errorf("%s not found", hash)
 		}
-		return model.ShortURL{OriginalURL: item.OriginalURL, ShortURL: hash}, nil
+		return &model.ShortURL{OriginalURL: item.OriginalURL, ShortURL: hash}, nil
 	}
 
 	item, exist := lo.Find(s.s, func(item URLRecord) bool {
 		return item.ShortURL == hash
 	})
 	if !exist {
-		return model.ShortURL{}, fmt.Errorf("%s not found", hash)
+		return nil, fmt.Errorf("%s not found", hash)
 	}
 
-	return model.ShortURL{OriginalURL: item.OriginalURL, ShortURL: hash}, nil
+	return &model.ShortURL{OriginalURL: item.OriginalURL, ShortURL: hash}, nil
 }
 
 func (s *Storage) getArrayFromFile(logger zap.SugaredLogger) ([]model.ShortURL, error) {

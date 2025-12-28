@@ -10,35 +10,35 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger, userID int) (model.ShortURL, error) {
+func (s *Storage) setPsql(shortURL model.ShortURL, _ zap.SugaredLogger, userID int) (*model.ShortURL, error) {
 	result, err := s.db.Exec(`INSERT INTO cupurl (originalURL, shortURL, userID) VALUES ($1, $2, $3) ON CONFLICT (originalURL) DO NOTHING;`, shortURL.OriginalURL, shortURL.ShortURL, userID)
 	if err != nil {
-		return model.ShortURL{}, err
+		return nil, err
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return model.ShortURL{}, err
+		return nil, err
 	}
 	if rowsAffected == 0 {
-		return model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL, UserID: userID}, model.ErrURLAlreadyExists
+		return &model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL, UserID: userID}, model.ErrURLAlreadyExists
 	}
-	return model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL, UserID: userID}, nil
+	return &model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL, UserID: userID}, nil
 }
 
-func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (model.ShortURL, error) {
+func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (*model.ShortURL, error) {
 	var originalURL string
 	var isDeleted bool
 	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1;`, hash).Scan(&originalURL, &isDeleted)
 	if isDeleted {
-		return model.ShortURL{}, sql.ErrNoRows
+		return nil, model.ErrDeletedURL
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return model.ShortURL{}, fmt.Errorf("URL not found")
+			return nil, fmt.Errorf("URL not found")
 		}
-		return model.ShortURL{}, fmt.Errorf("database error: %w", err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
-	return model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash, UserID: userID}, nil
+	return &model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash, UserID: userID}, nil
 }
 
 func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, _ zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
@@ -79,7 +79,7 @@ func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse
 		var v model.GetArrayURLResponse
 		err = rows.Scan(&v.Original, &v.Short, &v.DeletedFlag)
 		if v.DeletedFlag {
-			return nil, sql.ErrNoRows
+			return nil, model.ErrDeletedURL
 		}
 		if err != nil {
 			return nil, err

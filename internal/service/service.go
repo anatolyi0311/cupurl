@@ -71,7 +71,7 @@ func (s *Service) SetURL(urlTo string, userID int) (model.ShortURL, error) {
 		s.logger.Warn("url.hash.empty")
 		return model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
-	return shortHash, err
+	return *shortHash, err
 }
 
 func (s *Service) GetURL(hash string, userID int) (model.ShortURL, error) {
@@ -80,7 +80,7 @@ func (s *Service) GetURL(hash string, userID int) (model.ShortURL, error) {
 		return model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
 	originalURL, err := s.repo.Get(hash, s.logger, userID)
-	return originalURL, err
+	return *originalURL, err
 }
 
 func (s *Service) SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error) {

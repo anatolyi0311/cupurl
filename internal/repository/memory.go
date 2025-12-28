@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Storage) getMemory(hash string, logger zap.SugaredLogger) (model.ShortURL, error) {
+func (s *Storage) getMemory(hash string, logger zap.SugaredLogger) (*model.ShortURL, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -29,10 +29,10 @@ func (s *Storage) getMemory(hash string, logger zap.SugaredLogger) (model.ShortU
 
 	url, exist := s.memoryCache[hash]
 	if !exist {
-		return model.ShortURL{}, fmt.Errorf("%s not found", hash)
+		return nil, fmt.Errorf("%s not found", hash)
 	}
 
-	return model.ShortURL{OriginalURL: url, ShortURL: hash}, nil
+	return &model.ShortURL{OriginalURL: url, ShortURL: hash}, nil
 }
 
 func (s *Storage) getArrayMemory(logger zap.SugaredLogger) ([]model.ShortURL, error) {
@@ -52,7 +52,7 @@ func (s *Storage) getArrayMemory(logger zap.SugaredLogger) ([]model.ShortURL, er
 	return res, nil
 }
 
-func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger) (model.ShortURL, error) {
+func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger) (*model.ShortURL, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -63,7 +63,7 @@ func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger) (model.S
 
 	s.memoryCache[hash] = url
 
-	return model.ShortURL{OriginalURL: url, ShortURL: hash}, nil
+	return &model.ShortURL{OriginalURL: url, ShortURL: hash}, nil
 }
 
 func (s *Storage) setArrayMemory(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.ShortURL, error) {

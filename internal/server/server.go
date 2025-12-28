@@ -216,6 +216,10 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, err.Error(), http.StatusGone)
 			return
 		}
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(res, err.Error(), http.StatusGone)
+			return
+		}
 		s.logger.Error(err)
 		http.Error(res, err.Error(), http.StatusGone)
 		return
@@ -297,7 +301,7 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	result, err := s.su.GetArrayURL()
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, model.ErrDeletedURL) {
 			http.Error(res, err.Error(), http.StatusGone)
 			return
 		}
