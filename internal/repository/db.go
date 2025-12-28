@@ -78,10 +78,10 @@ func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse
 	for rows.Next() {
 		var v model.GetArrayURLResponse
 		err = rows.Scan(&v.Original, &v.Short, &v.DeletedFlag)
+		if v.DeletedFlag {
+			return nil, model.ErrDeletedURL
+		}
 		if err != nil {
-			if v.DeletedFlag {
-				return []model.GetArrayURLResponse{}, model.ErrDeletedURL
-			}
 			return nil, err
 		}
 		shortURL := s.cfg.Opts.BaseURL + "/" + v.Short
