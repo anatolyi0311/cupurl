@@ -32,7 +32,7 @@ func (m *MockCaseURL) GetArrayURL() ([]model.ShortURL, error) {
 
 func (m *MockCaseURL) DeleteArrayURL(hash []string, userID int) {}
 
-func (m *MockCaseURL) DeleteUrls(ctx context.Context, req *http.Request, _ []string, userID int) {}
+func (m *MockCaseURL) DeleteUrls(ctx context.Context, _ []string, userID int) {}
 
 func (m *MockCaseURL) SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error) {
 	return make([]model.ShortURL, 0), fmt.Errorf("")
