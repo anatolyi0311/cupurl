@@ -121,7 +121,7 @@ func (s *Server) SetJSONHandler(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		userID = 1
 	}
-	s.logger.Info("SetJSONHandler.userID", userID, " body: ", string(body))
+	// s.logger.Info("SetJSONHandler.userID", userID, " body: ", string(body))
 
 	hash, err := s.su.SetURL(request.URL, userID)
 	if err != nil {
@@ -176,7 +176,7 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		userID = 1
 	}
-	s.logger.Info("SetURLHandler.userID", userID, " body: ", string(body))
+	// s.logger.Info("SetURLHandler.userID", userID, " body: ", string(body))
 
 	hash, err := s.su.SetURL(string(body), userID)
 	if err != nil {
@@ -196,7 +196,7 @@ func (s *Server) SetURLHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
-	s.logger.Info("get.url")
+	// s.logger.Info("get.url")
 
 	pathURL := chi.URLParam(req, "id")
 	if pathURL == "" {
@@ -208,7 +208,7 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		userID = 1
 	}
-	s.logger.Info("GetURLHandler.userID: ", userID, " hash: ", hash)
+	// s.logger.Info("GetURLHandler.userID: ", userID, " hash: ", hash)
 
 	url, err := s.su.GetURL(hash, userID)
 	if err != nil {
@@ -224,7 +224,7 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusGone)
 		return
 	}
-	s.logger.Info("get.url: ", url)
+	// s.logger.Info("get.url: ", url)
 
 	res.Header().Set("Location", url.OriginalURL)
 	res.WriteHeader(http.StatusTemporaryRedirect)
@@ -259,7 +259,7 @@ func (s *Server) SetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		userID = 1
 	}
-	s.logger.Info("SetArrayURLJson.userID", userID)
+	// s.logger.Info("SetArrayURLJson.userID", userID)
 
 	result, err := s.su.SetArrayURL(request, userID)
 	if err != nil {
@@ -296,7 +296,7 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	s.cfg.Opts.User = userID
-	s.logger.Info("GetArrayURLJson.userID: ", userID)
+	// s.logger.Info("GetArrayURLJson.userID: ", userID)
 
 	result, err := s.su.GetArrayURL()
 
