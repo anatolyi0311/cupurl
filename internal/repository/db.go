@@ -30,7 +30,7 @@ func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (model.S
 	var isDeleted bool
 	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1;`, hash).Scan(&originalURL, &isDeleted)
 	if isDeleted {
-		return model.ShortURL{}, model.ErrDeletedURL
+		return model.ShortURL{}, sql.ErrNoRows
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -79,7 +79,7 @@ func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse
 		var v model.GetArrayURLResponse
 		err = rows.Scan(&v.Original, &v.Short, &v.DeletedFlag)
 		if v.DeletedFlag {
-			return nil, model.ErrDeletedURL
+			return nil, sql.ErrNoRows
 		}
 		if err != nil {
 			return nil, err
