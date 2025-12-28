@@ -148,7 +148,7 @@ func (s *Service) DeleteUrls(ctx context.Context, ids []string, userID int) {
 	workerChs := make([]chan model.ShortURL, 0, workersCount)
 	for urlID := range inputCh {
 		workerCh := make(chan model.ShortURL, 1)
-		newWorker(urlID, workerCh)
+		newWorker(urlID, userID, workerCh)
 		workerChs = append(workerChs, workerCh)
 	}
 	for v := range fanIn(done, workerChs...) {
@@ -169,15 +169,15 @@ func (s *Service) DeleteUrls(ctx context.Context, ids []string, userID int) {
 	time.Sleep(time.Second)
 }
 
-func newWorker(urlID string, out chan model.ShortURL) {
+func newWorker(urlID string, userID int, out chan model.ShortURL) {
 	go func() {
 		defer func() {
 			if x := recover(); x != nil {
-				newWorker(urlID, out)
+				newWorker(urlID, userID, out)
 				log.Printf("run time panic: %v, %v", x, out)
 			}
 		}()
-		out <- model.ShortURL{ShortURL: urlID}
+		out <- model.ShortURL{ShortURL: urlID, UserID: userID}
 		close(out)
 	}()
 }
