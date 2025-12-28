@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/http"
 	"runtime"
 	"strings"
 	"sync"
@@ -29,7 +28,8 @@ type CaseURL interface {
 	SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error)
 	Ping() error
 	GetArrayURL() ([]model.ShortURL, error)
-	DeleteArrayURL(hash []string, userID int) // variant 2
+	DeleteArrayURL(hash []string, userID int)                      // variant 2
+	DeleteUrls(context context.Context, hash []string, userID int) // variant 2
 	GetStats(ctx context.Context) (model.Stats, error)
 }
 
@@ -126,13 +126,13 @@ func (s *Service) FormatURL(baseURL, hash string) string {
 	return baseURL + "/" + hash
 }
 
-func (s *Service) DeleteUrls(ctx context.Context, req *http.Request, ids []string, userID int) {
+func (s *Service) DeleteUrls(ctx context.Context, ids []string, userID int) {
 	done := make(chan struct{})
 	defer close(done)
 
 	workersCount := runtime.NumCPU()
 	inputCh := make(chan string)
-	modelsToDelete := make([]model.ShortURL, 0, len(ids))
+	// modelsToDelete := make([]model.ShortURL, 0, len(ids))
 
 	go func() {
 		for _, id := range ids {
@@ -148,7 +148,7 @@ func (s *Service) DeleteUrls(ctx context.Context, req *http.Request, ids []strin
 		workerChs = append(workerChs, workerCh)
 	}
 	for v := range fanIn(done, workerChs...) {
-		modelsToDelete = append(modelsToDelete, v)
+		// modelsToDelete = append(modelsToDelete, v)
 		go func(hash string) {
 			err := s.repo.Delete(hash, s.logger, userID)
 			if err != nil {

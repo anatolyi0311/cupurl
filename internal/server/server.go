@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -350,8 +351,8 @@ func (s *Server) DeleteArrayURLJson(res http.ResponseWriter, req *http.Request) 
 	s.cfg.Opts.User = userID
 	s.logger.Info("DeleteArrayURLJson.userID: ", userID, "...", s.cfg.Opts.User)
 
-	s.su.DeleteArrayURL(hashArray, userID)
-	// s.su.DeleteUrls(context.Background(), req, hashArray, userID)
+	// s.su.DeleteArrayURL(hashArray, userID)
+	s.su.DeleteUrls(context.Background(), hashArray, userID)
 
 	res.WriteHeader(http.StatusAccepted)
 }
