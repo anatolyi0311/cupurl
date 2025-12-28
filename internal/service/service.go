@@ -25,7 +25,7 @@ const (
 
 type CaseURL interface {
 	SetURL(url string, userID int) (model.ShortURL, error)
-	GetURL(hash string, userID int) (model.ShortURL, error)
+	GetURL(hash string, userID int) (*model.ShortURL, error)
 	SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error)
 	Ping() error
 	GetArrayURL() ([]model.ShortURL, error)
@@ -74,13 +74,13 @@ func (s *Service) SetURL(urlTo string, userID int) (model.ShortURL, error) {
 	return *shortHash, err
 }
 
-func (s *Service) GetURL(hash string, userID int) (model.ShortURL, error) {
+func (s *Service) GetURL(hash string, userID int) (*model.ShortURL, error) {
 	hash = strings.TrimSpace(hash)
 	if hash == "" {
-		return model.ShortURL{}, fmt.Errorf("incorrect id")
+		return &model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
 	originalURL, err := s.repo.Get(hash, s.logger, userID)
-	return *originalURL, err
+	return originalURL, err
 }
 
 func (s *Service) SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error) {
