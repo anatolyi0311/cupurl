@@ -5,7 +5,11 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"log"
+	"net/http"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -120,4 +124,83 @@ func (s *Service) Ping() error {
 
 func (s *Service) FormatURL(baseURL, hash string) string {
 	return baseURL + "/" + hash
+}
+
+func (s *Service) DeleteUrls(ctx context.Context, req *http.Request, ids []string, userID int) {
+	done := make(chan struct{})
+	defer close(done)
+
+	workersCount := runtime.NumCPU()
+	inputCh := make(chan string)
+	modelsToDelete := make([]model.ShortURL, 0, len(ids))
+
+	go func() {
+		for _, id := range ids {
+			inputCh <- id
+		}
+		close(inputCh)
+	}()
+
+	workerChs := make([]chan model.ShortURL, 0, workersCount)
+	for urlID := range inputCh {
+		workerCh := make(chan model.ShortURL, 1)
+		newWorker(urlID, workerCh)
+		workerChs = append(workerChs, workerCh)
+	}
+	for v := range fanIn(done, workerChs...) {
+		modelsToDelete = append(modelsToDelete, v)
+		go func(hash string) {
+			err := s.repo.Delete(hash, s.logger, userID)
+			if err != nil {
+				s.logger.Warn(err)
+			}
+		}(v.ShortURL)
+
+	}
+
+	// err := s.repo.DeleteArray(ctx, modelsToDelete, s.logger, userID)
+	// if err != nil {
+	// 	s.logger.Warnf("couldn't delete urls: %v\n", err)
+	// }
+	time.Sleep(time.Second)
+}
+
+func newWorker(urlID string, out chan model.ShortURL) {
+	go func() {
+		defer func() {
+			if x := recover(); x != nil {
+				newWorker(urlID, out)
+				log.Printf("run time panic: %v, %v", x, out)
+			}
+		}()
+		out <- model.ShortURL{ShortURL: urlID}
+		close(out)
+	}()
+}
+
+func fanIn(done chan struct{}, channels ...chan model.ShortURL) chan model.ShortURL {
+	var wg sync.WaitGroup
+	finalCh := make(chan model.ShortURL, len(channels))
+	multiplex := func(c chan model.ShortURL) {
+		// defer wg.Done()
+		for data := range c {
+			select {
+			case <-done:
+				return
+			case finalCh <- data:
+			}
+		}
+		wg.Done()
+	}
+	wg.Add(len(channels))
+	for _, c := range channels {
+		chClosure := c
+		// wg.Add(1)
+		go multiplex(chClosure)
+	}
+	go func() {
+		wg.Wait()
+		close(finalCh)
+	}()
+	return finalCh
 }
