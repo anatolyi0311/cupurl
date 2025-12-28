@@ -21,8 +21,9 @@ type SetArrayURLResponse struct {
 }
 
 type GetArrayURLResponse struct {
-	Short    string `json:"short_url"`
-	Original string `json:"original_url"`
+	Short       string `json:"short_url"`
+	Original    string `json:"original_url"`
+	DeletedFlag bool   `json:"is_deleted"`
 }
 
 type ShortURL struct {

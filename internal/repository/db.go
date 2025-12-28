@@ -69,7 +69,7 @@ func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, _ zap.Sugared
 
 func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse, error) {
 	var res []model.GetArrayURLResponse
-	rows, err := s.db.Query(`SELECT originalURL, shortURL FROM cupurl;`)
+	rows, err := s.db.Query(`SELECT originalURL, deletedFlag, shortURL FROM cupurl;`)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +77,11 @@ func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse
 	// пробегаем по всем записям
 	for rows.Next() {
 		var v model.GetArrayURLResponse
-		err = rows.Scan(&v.Original, &v.Short)
+		err = rows.Scan(&v.Original, &v.Short, &v.DeletedFlag)
 		if err != nil {
+			if v.DeletedFlag {
+				return []model.GetArrayURLResponse{}, model.ErrDeletedURL
+			}
 			return nil, err
 		}
 		shortURL := s.cfg.Opts.BaseURL + "/" + v.Short
