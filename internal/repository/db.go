@@ -69,7 +69,7 @@ func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, _ zap.Sugared
 
 func (s *Storage) getArrayPsql(_ zap.SugaredLogger) ([]model.GetArrayURLResponse, error) {
 	var res []model.GetArrayURLResponse
-	rows, err := s.db.Query(`SELECT originalURL, deletedFlag, shortURL FROM cupurl;`)
+	rows, err := s.db.Query(`SELECT originalURL, shortURL, deletedFlag FROM cupurl;`)
 	if err != nil {
 		return nil, err
 	}
