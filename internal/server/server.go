@@ -301,15 +301,15 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, model.ErrDeletedURL) {
-			http.Error(res, err.Error(), http.StatusGone)
+			http.Error(res, err.Error(), http.StatusNoContent)
 			return
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(res, err.Error(), http.StatusGone)
+			http.Error(res, err.Error(), http.StatusNoContent)
 			return
 		}
 		s.logger.Errorln(err)
-		http.Error(res, err.Error(), http.StatusGone)
+		http.Error(res, err.Error(), http.StatusNoContent)
 		return
 	}
 
