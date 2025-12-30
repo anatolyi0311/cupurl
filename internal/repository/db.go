@@ -25,7 +25,7 @@ func (s *Storage) setPsql(shortURL model.ShortURL, _ zap.SugaredLogger, userID i
 	return &model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL, UserID: userID}, nil
 }
 
-func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (*model.ShortURL, error) {
+func (s *Storage) getPsql(hash string, _ zap.SugaredLogger) (*model.ShortURL, error) {
 	var originalURL string
 	var isDeleted bool
 	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1;`, hash).Scan(&originalURL, &isDeleted)
@@ -38,7 +38,7 @@ func (s *Storage) getPsql(hash string, _ zap.SugaredLogger, userID int) (*model.
 		}
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-	return &model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash, UserID: userID}, nil
+	return &model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash}, nil
 }
 
 func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, _ zap.SugaredLogger, userID int) ([]model.ShortURL, error) {

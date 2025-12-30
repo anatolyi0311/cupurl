@@ -13,7 +13,7 @@ import (
 )
 
 type Repository interface {
-	Get(hash string, logger zap.SugaredLogger, userID int) (*model.ShortURL, error)
+	Get(hash string, logger zap.SugaredLogger) (*model.ShortURL, error)
 	Set(shortURL model.ShortURL, logger zap.SugaredLogger, userID int) (*model.ShortURL, error)
 	Ping() error
 	SetArrayURL(request []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error)
@@ -53,9 +53,9 @@ func NewStorage(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (Repos
 	return s, nil
 }
 
-func (s *Storage) Get(hash string, logger zap.SugaredLogger, userID int) (*model.ShortURL, error) {
+func (s *Storage) Get(hash string, logger zap.SugaredLogger) (*model.ShortURL, error) {
 	if s.db != nil {
-		return s.getPsql(hash, logger, userID)
+		return s.getPsql(hash, logger)
 	}
 	if s.hasFile {
 		return s.getFromFile(hash, logger)

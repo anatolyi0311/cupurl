@@ -203,13 +203,13 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	hash := strings.TrimPrefix(pathURL, "/")
 
-	userID, err := jwt.GetUserID(req)
-	if err != nil {
-		userID = 1
-	}
+	// userID, err := jwt.GetUserID(req)
+	// if err != nil {
+	// 	userID = 1
+	// }
 	// s.logger.Info("GetURLHandler.userID: ", userID, " hash: ", hash)
 
-	url, err := s.su.GetURL(hash, userID)
+	url, err := s.su.GetURL(hash)
 	if err != nil {
 		if errors.Is(err, model.ErrDeletedURL) {
 			http.Error(res, err.Error(), http.StatusGone)

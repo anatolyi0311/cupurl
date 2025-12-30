@@ -25,7 +25,7 @@ const (
 
 type CaseURL interface {
 	SetURL(url string, userID int) (model.ShortURL, error)
-	GetURL(hash string, userID int) (*model.ShortURL, error)
+	GetURL(userID string) (*model.ShortURL, error)
 	SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error)
 	Ping() error
 	GetArrayURL() ([]model.ShortURL, error)
@@ -50,9 +50,9 @@ func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseU
 	cache := repository.NewCache()
 
 	return &Service{
-		repo:   repo,
-		logger: logger,
-		storage:  cache,
+		repo:    repo,
+		logger:  logger,
+		storage: cache,
 	}, nil
 }
 
@@ -75,17 +75,17 @@ func (s *Service) SetURL(urlTo string, userID int) (model.ShortURL, error) {
 		s.logger.Warn("url.hash.empty")
 		return model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
-	
+
 	s.storage.SaveHash(userID, shortHash.ShortURL)
 	return *shortHash, err
 }
 
-func (s *Service) GetURL(hash string, userID int) (*model.ShortURL, error) {
+func (s *Service) GetURL(hash string) (*model.ShortURL, error) {
 	hash = strings.TrimSpace(hash)
 	if hash == "" {
 		return &model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
-	originalURL, err := s.repo.Get(hash, s.logger, userID)
+	originalURL, err := s.repo.Get(hash, s.logger)
 	return originalURL, err
 }
 
@@ -99,7 +99,7 @@ func (s *Service) SetArrayURL(request []model.SetArrayURLRequest, userID int) ([
 		request[i].ShortURL = fmt.Sprintf("%x", hash[:8])
 		request[i].UserID = userID
 	}
-	
+
 	result, err := s.repo.SetArrayURL(request, s.logger, userID)
 	if err != nil {
 		for _, item := range result {

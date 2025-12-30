@@ -55,7 +55,7 @@ func newWrapServer() *Server {
 	}
 }
 
-func (m *MockCaseURL) GetURL(hash string, userID int) (*model.ShortURL, error) {
+func (m *MockCaseURL) GetURL(hash string) (*model.ShortURL, error) {
 	args := m.Called(hash)
 	return &model.ShortURL{OriginalURL: args.String(0)}, args.Error(1)
 }
