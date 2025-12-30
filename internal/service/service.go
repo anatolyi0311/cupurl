@@ -35,8 +35,9 @@ type CaseURL interface {
 }
 
 type Service struct {
-	repo   repository.Repository
-	logger zap.SugaredLogger
+	repo    repository.Repository
+	logger  zap.SugaredLogger
+	storage *repository.MemCache
 }
 
 func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseURL, error) {
@@ -46,9 +47,12 @@ func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseU
 		return nil, err
 	}
 
+	cache := repository.NewCache()
+
 	return &Service{
 		repo:   repo,
 		logger: logger,
+		storage:  cache,
 	}, nil
 }
 
@@ -71,6 +75,8 @@ func (s *Service) SetURL(urlTo string, userID int) (model.ShortURL, error) {
 		s.logger.Warn("url.hash.empty")
 		return model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
+	
+	s.storage.SaveHash(userID, shortHash.ShortURL)
 	return *shortHash, err
 }
 
@@ -93,7 +99,15 @@ func (s *Service) SetArrayURL(request []model.SetArrayURLRequest, userID int) ([
 		request[i].ShortURL = fmt.Sprintf("%x", hash[:8])
 		request[i].UserID = userID
 	}
-	return s.repo.SetArrayURL(request, s.logger, userID)
+	
+	result, err := s.repo.SetArrayURL(request, s.logger, userID)
+	if err != nil {
+		for _, item := range result {
+			s.storage.SaveHash(userID, item.ShortURL)
+		}
+	}
+
+	return result, err
 }
 
 func (s *Service) GetArrayURL() ([]model.ShortURL, error) {
@@ -103,6 +117,9 @@ func (s *Service) GetArrayURL() ([]model.ShortURL, error) {
 func (s *Service) DeleteArrayURL(hashArray []string, userID int) {
 	for _, hash := range hashArray {
 		go func(hash string) {
+			if !s.storage.CanDeleteHash(userID, hash) {
+				return
+			}
 			err := s.repo.Delete(hash, s.logger, userID)
 			if errors.Is(err, sql.ErrNoRows) {
 				return
@@ -154,6 +171,9 @@ func (s *Service) DeleteUrls(ctx context.Context, ids []string, userID int) {
 	for v := range fanIn(done, workerChs...) {
 		// modelsToDelete = append(modelsToDelete, v)
 		go func(hash string) {
+			if !s.storage.CanDeleteHash(userID, hash) {
+				return
+			}
 			err := s.repo.Delete(hash, s.logger, userID)
 			if err != nil {
 				s.logger.Warn(err)
