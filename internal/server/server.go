@@ -358,7 +358,7 @@ func (s *Server) DeleteArrayURLJson(res http.ResponseWriter, req *http.Request) 
 	s.cfg.Opts.User = userID
 	s.logger.Info("DeleteArrayURLJson.userID: ", userID, "...", s.cfg.Opts.User)
 
-	s.su.DeleteArrayURL(hashArray, userID)
+	go s.su.DeleteArrayURL(hashArray, userID)
 	// s.su.DeleteUrls(context.Background(), hashArray, userID)
 
 	res.WriteHeader(http.StatusAccepted)
