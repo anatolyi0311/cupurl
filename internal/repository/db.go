@@ -105,10 +105,7 @@ func (s *Storage) DeleteDB(hash string, userID int, logger zap.SugaredLogger) er
 		return fmt.Errorf("%s", sql.ErrNoRows)
 	}
 
-	result, err := s.db.Exec(`
-		UPDATE cupurl 
-		SET deletedFlag = true 
-		WHERE shortURL = $1 AND userID = $2;`, hash, userID)
+	result, err := s.db.Exec(`UPDATE cupurl SET deletedFlag = true WHERE shortURL = $1 AND userID = $2;`, hash, userID)
 	if err != nil {
 		return fmt.Errorf("failed delete %s; %w", hash, err)
 	}

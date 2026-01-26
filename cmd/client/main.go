@@ -13,6 +13,10 @@ import (
 )
 
 func main() {
+	easy()
+}
+
+func easy() {
 	endpoint := "http://localhost:8080/"
 	// контейнер данных для запроса
 	data := url.Values{}
@@ -41,7 +45,8 @@ func main() {
 		log.Fatalln(err)
 	}
 	// в заголовках запроса указываем кодировку
-	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	// request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Add("Content-Type", "text/plain")
 	// отправляем запрос и получаем ответ
 	response, err := client.Do(request)
 	if err != nil {

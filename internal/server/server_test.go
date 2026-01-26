@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -195,6 +196,68 @@ func TestServerSetURL(t *testing.T) {
 			res := httptest.NewRecorder()
 
 			s.SetURLHandler(res, req)
+			assert.Equal(t, tt.expectedStatus, res.Code)
+			assert.Equal(t, tt.expectedBody, res.Body.String())
+
+			if tt.isOn {
+				mockUC.AssertExpectations(t)
+			}
+		})
+	}
+}
+
+func TestServerDeleteURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		method      string
+		url         string
+		contentType string
+
+		isOn      bool
+		mockURL   string
+		mockHash  string
+		mockError error
+
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:        "successful post",
+			method:      http.MethodDelete,
+			url:         `["abc"]`,
+			contentType: "application/json",
+
+			isOn:      true,
+			mockURL:   "https://practicum.yandex.ru/",
+			mockHash:  "abc",
+			mockError: nil,
+
+			expectedStatus: http.StatusAccepted,
+			expectedBody:   "localhost:8080/abc",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newWrapServer()
+
+			mockUC := s.su.(*MockCaseURL)
+			if tt.isOn {
+				mockUC.On("SetURL", tt.mockURL).Return(tt.mockHash, tt.mockError)
+			}
+
+			req := httptest.NewRequest(tt.method, "/", strings.NewReader(tt.url))
+			req.Header.Set("Content-Type", tt.contentType)
+			req.Cookie(UserIDCookieName)
+			res := httptest.NewRecorder()
+			http.SetCookie(res, &http.Cookie{
+				Name:    "jwt_token",
+				Value:   "tokenStr",
+				Expires: time.Now(),
+				// Path:     "/",
+			})
+
+			s.DeleteArrayURLJson(res, req)
 			assert.Equal(t, tt.expectedStatus, res.Code)
 			assert.Equal(t, tt.expectedBody, res.Body.String())
 
