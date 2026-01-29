@@ -30,7 +30,7 @@ func InitPostgresClient(cfg *config.Config, logger zap.SugaredLogger) (*sql.DB, 
 	if err != nil {
 		return nil, err
 	}
-
+	//export DATABASE_DSN="postgres://postgres:qwerty@127.0.0.1:5432/iter15?sslmode=disable"
 	logger.Infow(
 		"db.init",
 		"host", options[0],
