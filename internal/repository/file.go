@@ -154,7 +154,7 @@ func (s *Storage) setArrayInFile(req []model.SetArrayURLRequest, logger zap.Suga
 	return resp, nil
 }
 
-func (s *Storage) DeleteFile(hash string, logger zap.SugaredLogger) error {
+func (s *Storage) DeleteFile(hash string, logger zap.SugaredLogger, userID int) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

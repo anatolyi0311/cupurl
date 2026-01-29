@@ -104,7 +104,7 @@ func (s *Storage) Delete(hash string, logger zap.SugaredLogger, userID int) erro
 		return err
 	}
 	if s.hasFile {
-		return s.DeleteFile(hash, logger)
+		return s.DeleteFile(hash, logger, userID)
 	}
 	return s.DeleteMem(hash)
 }
