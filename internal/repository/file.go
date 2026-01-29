@@ -59,7 +59,7 @@ func (s *Storage) loadFromFile(logger zap.SugaredLogger) error {
 	return nil
 }
 
-func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (*model.ShortURL, error) {
+func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger, userId int) (*model.ShortURL, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -74,6 +74,7 @@ func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger) (*model.
 		UUID:        strconv.Itoa(len(s.s)),
 		ShortURL:    hash,
 		OriginalURL: url,
+		UserID: userId,
 	})
 	err := s.saveToFile(logger)
 
@@ -120,7 +121,7 @@ func (s *Storage) getArrayFromFile(logger zap.SugaredLogger) ([]model.ShortURL, 
 	return res, nil
 }
 
-func (s *Storage) setArrayInFile(req []model.SetArrayURLRequest, logger zap.SugaredLogger) ([]model.ShortURL, error) {
+func (s *Storage) setArrayInFile(req []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -138,6 +139,7 @@ func (s *Storage) setArrayInFile(req []model.SetArrayURLRequest, logger zap.Suga
 				UUID:        strconv.Itoa(len(s.s)),
 				ShortURL:    item.ShortURL,
 				OriginalURL: item.OriginalURL,
+				UserID: userID,
 			}
 			s.s = append(s.s, newRecord)
 			resp = append(resp, model.ShortURL{
@@ -159,7 +161,7 @@ func (s *Storage) DeleteFile(hash string, logger zap.SugaredLogger, userID int) 
 	defer s.mu.RUnlock()
 
 	lo.ForEach(s.s, func(_ URLRecord, i int) {
-		if s.s[i].ShortURL == hash {
+		if s.s[i].ShortURL == hash && s.s[i].UserID == userID {
 			s.s[i].DeletedFlag = true
 		}
 	})

@@ -28,6 +28,7 @@ type URLRecord struct {
 	OriginalURL string `json:"original_url" db:"originalURL"`
 	DeletedFlag bool   `json:"is_deleted" db:"deletedFlag"`
 	CreatedByID string `json:"created_by" db:"createdBy"`
+	UserID      int    `json:"user_id" db:"userId"`
 }
 
 type Storage struct {
@@ -83,9 +84,9 @@ func (s *Storage) Set(shortURL model.ShortURL, logger zap.SugaredLogger, userID 
 		return s.setPsql(shortURL, logger, userID)
 	}
 	if s.hasFile {
-		return s.setInFile(shortURL.OriginalURL, shortURL.ShortURL, logger)
+		return s.setInFile(shortURL.OriginalURL, shortURL.ShortURL, logger, userID)
 	}
-	return s.setMemory(shortURL.OriginalURL, shortURL.ShortURL, logger)
+	return s.setMemory(shortURL.OriginalURL, shortURL.ShortURL, logger, userID)
 }
 
 func (s *Storage) SetArrayURL(request []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
@@ -93,9 +94,9 @@ func (s *Storage) SetArrayURL(request []model.SetArrayURLRequest, logger zap.Sug
 		return s.setArrayPsql(request, logger, userID)
 	}
 	if s.hasFile {
-		return s.setArrayInFile(request, logger)
+		return s.setArrayInFile(request, logger, userID)
 	}
-	return s.setArrayMemory(request, logger)
+	return s.setArrayMemory(request, logger, userID)
 }
 
 func (s *Storage) Delete(hash string, logger zap.SugaredLogger, userID int) error {
@@ -106,7 +107,7 @@ func (s *Storage) Delete(hash string, logger zap.SugaredLogger, userID int) erro
 	if s.hasFile {
 		return s.DeleteFile(hash, logger, userID)
 	}
-	return s.DeleteMem(hash)
+	return s.DeleteMem(hash, userID)
 }
 
 func (s *Storage) Ping() error {
