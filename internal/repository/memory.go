@@ -52,7 +52,7 @@ func (s *Storage) getArrayMemory(logger zap.SugaredLogger) ([]model.ShortURL, er
 	return res, nil
 }
 
-func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger, userId int) (*model.ShortURL, error) {
+func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger, userID int) (*model.ShortURL, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -63,16 +63,16 @@ func (s *Storage) setMemory(url, hash string, logger zap.SugaredLogger, userId i
 
 	s.memoryCache[hash] = url
 
-	return &model.ShortURL{OriginalURL: url, ShortURL: hash, UserID: userId}, nil
+	return &model.ShortURL{OriginalURL: url, ShortURL: hash, UserID: userID}, nil
 }
 
-func (s *Storage) setArrayMemory(req []model.SetArrayURLRequest, logger zap.SugaredLogger, userId int) ([]model.ShortURL, error) {
+func (s *Storage) setArrayMemory(req []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
 	resp := []model.ShortURL{}
 	for _, item := range req {
 		s.setMemory(item.OriginalURL, item.ShortURL, logger, item.UserID)
 		resp = append(resp, model.ShortURL{
 			ShortURL: item.ShortURL,
-			UserID:   userId,
+			UserID:   userID,
 		})
 	}
 	return resp, nil
