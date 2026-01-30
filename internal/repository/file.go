@@ -59,7 +59,7 @@ func (s *Storage) loadFromFile(logger zap.SugaredLogger) error {
 	return nil
 }
 
-func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger, userId int) (*model.ShortURL, error) {
+func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger, userID int) (*model.ShortURL, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -74,7 +74,7 @@ func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger, userId i
 		UUID:        strconv.Itoa(len(s.s)),
 		ShortURL:    hash,
 		OriginalURL: url,
-		UserID: userId,
+		UserID:      userID,
 	})
 	err := s.saveToFile(logger)
 
@@ -139,7 +139,7 @@ func (s *Storage) setArrayInFile(req []model.SetArrayURLRequest, logger zap.Suga
 				UUID:        strconv.Itoa(len(s.s)),
 				ShortURL:    item.ShortURL,
 				OriginalURL: item.OriginalURL,
-				UserID: userID,
+				UserID:      userID,
 			}
 			s.s = append(s.s, newRecord)
 			resp = append(resp, model.ShortURL{
