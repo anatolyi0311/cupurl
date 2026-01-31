@@ -18,7 +18,7 @@ type Repository interface {
 	Ping() error
 	SetArrayURL(request []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error)
 	GetArray(logger zap.SugaredLogger) ([]model.ShortURL, error)
-	Delete(hash string, logger zap.SugaredLogger, userID int) error
+	Delete(hash string, hashArray []string, logger zap.SugaredLogger, userID int) error
 	GetUsersAndUrlsCount(ctx context.Context) (int, int, error)
 	MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error
 	AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string)
@@ -101,9 +101,9 @@ func (s *Storage) SetArrayURL(request []model.SetArrayURLRequest, logger zap.Sug
 	return s.setArrayMemory(request, logger, userID)
 }
 
-func (s *Storage) Delete(hash string, logger zap.SugaredLogger, userID int) error {
+func (s *Storage) Delete(hash string, hashArray []string, logger zap.SugaredLogger, userID int) error {
 	if s.db != nil {
-		err := s.DeleteDB(hash, userID, logger)
+		err := s.MarkURLsAsDeleted(context.Background(), hashArray) // s.DeleteDB(hash, userID, logger)
 		return err
 	}
 	if s.hasFile {

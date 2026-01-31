@@ -124,7 +124,7 @@ func (s *Service) DeleteArrayURL(hashArray []string, userID int) {
 			if !s.storage.CanDeleteHash(userID, hash) {
 				return
 			}
-			err := s.repo.Delete(hash, s.logger, userID)
+			err := s.repo.Delete(hash, hashArray, s.logger, userID)
 			if errors.Is(err, sql.ErrNoRows) {
 				return
 			}
@@ -178,7 +178,7 @@ func (s *Service) DeleteUrls(ctx context.Context, ids []string, userID int) {
 			if !s.storage.CanDeleteHash(userID, hash) {
 				return
 			}
-			err := s.repo.Delete(hash, s.logger, userID)
+			err := s.repo.Delete(hash, ids, s.logger, userID)
 			if err != nil {
 				s.logger.Warn(err)
 			}

@@ -155,7 +155,7 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) err
 		}
 	}()
 
-	const sqlQuery = `UPDATE shortedurl SET deletedflag = true WHERE shorturl = ANY($1) AND userid = $2`
+	const sqlQuery = `UPDATE shortedurl SET deletedFlag = true WHERE shortURL = ANY($1) AND userID = $2`
 	_, err = tx.Exec(sqlQuery, URLSToDel, userID)
 	if err != nil {
 		logrus.Error("Failed to mark URLs as deleted: ", err)
