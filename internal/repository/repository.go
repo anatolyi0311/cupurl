@@ -21,6 +21,7 @@ type Repository interface {
 	Delete(hash string, logger zap.SugaredLogger, userID int) error
 	GetUsersAndUrlsCount(ctx context.Context) (int, int, error)
 	MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error
+	AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string)
 }
 
 type URLRecord struct {

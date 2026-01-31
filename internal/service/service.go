@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"runtime"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/model"
 	"github.com/anatolyi0311/cupurl/internal/repository"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -232,4 +234,17 @@ func fanIn(done chan struct{}, channels ...chan model.ShortURL) chan model.Short
 }
 func (s *Service) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
 	return nil
+}
+
+func (s *Service) DelUserURLS(c *gin.Context) {
+	ctx := c.Request.Context()
+	var URLSToDel []string
+	if err := c.ShouldBindJSON(&URLSToDel); err != nil {
+		s.logger.Error(err)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+	c.Status(http.StatusAccepted)
+	s.repo.AsyncDeleteUserURLs(ctx, URLSToDel)
+
 }
