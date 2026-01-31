@@ -5,8 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/anatolyi0311/cupurl/internal/model"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 )
 
@@ -127,4 +131,58 @@ func (s *Storage) GetUsersAndUrlsCount(ctx context.Context) (int, int, error) {
 		"select count('*'), count(distinct shortURL) from cupurl",
 	).Scan(&urlsCount, &usersCount)
 	return usersCount, urlsCount, err
+}
+
+func (d *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+	if len(URLSToDel) == 0 {
+		return nil
+	}
+	userID, ok := ctx.Value(model.UserIDKey).(uint32)
+	if !ok {
+		logrus.Errorf("context value is not userID: %v", userID)
+		return fmt.Errorf("invalid user context")
+	}
+	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		logrus.Error("Failed to begin transaction: ", err)
+		return err
+	}
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				logrus.Errorf("Failed to rollback transaction: %v", rollbackErr)
+			}
+		}
+	}()
+
+	const sqlQuery = `UPDATE shortedurl SET deletedflag = true WHERE shorturl = ANY($1) AND userid = $2`
+	_, err = tx.Exec(sqlQuery, URLSToDel, userID)
+	if err != nil {
+		logrus.Error("Failed to mark URLs as deleted: ", err)
+		return err
+	}
+	logrus.Infof("Complete mark URLs as deleted: %s, %d", URLSToDel, userID)
+	return tx.Commit()
+}
+
+func (s *Storage) DelUserURLS(c *gin.Context) {
+	ctx := c.Request.Context()
+	var URLSToDel []string
+	if err := c.ShouldBindJSON(&URLSToDel); err != nil {
+		logrus.Error(err)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+	c.Status(http.StatusAccepted)
+	s.AsyncDeleteUserURLs(ctx, URLSToDel)
+
+}
+func (s *Storage) AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string) {
+	go func() {
+		asyncCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		if err := s.MarkURLsAsDeleted(asyncCtx, URLSToDel); err != nil {
+			logrus.Error(err)
+		}
+	}()
 }

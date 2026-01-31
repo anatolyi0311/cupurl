@@ -32,12 +32,14 @@ type CaseURL interface {
 	DeleteArrayURL(hash []string, userID int)                      // variant 2
 	DeleteUrls(context context.Context, hash []string, userID int) // variant 2
 	GetStats(ctx context.Context) (model.Stats, error)
+	MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error
 }
 
 type Service struct {
 	repo    repository.Repository
 	logger  zap.SugaredLogger
 	storage *repository.MemCache
+	baseURL string
 }
 
 func NewService(cfg *config.Config, db *sql.DB, logger zap.SugaredLogger) (CaseURL, error) {
@@ -227,4 +229,7 @@ func fanIn(done chan struct{}, channels ...chan model.ShortURL) chan model.Short
 		close(finalCh)
 	}()
 	return finalCh
+}
+func (m *Service) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+	return nil
 }

@@ -71,6 +71,11 @@ func (m *MockCaseURL) GetStats(ctx context.Context) (model.Stats, error) {
 	return model.Stats{UsersCount: args.Int(0), UrlsCount: args.Int(1)}, nil
 }
 
+func (m *MockCaseURL) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+	// args := m.Called(0, 0)
+	return nil
+}
+
 func TestServerGetURL(t *testing.T) {
 	tests := []struct {
 		name   string

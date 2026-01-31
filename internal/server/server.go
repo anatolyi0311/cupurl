@@ -71,6 +71,10 @@ func (s *Server) router() {
 	s.route.Get("/api/user/urls", s.GetArrayURLJson)
 	// s.route.Get("/api/internal/stats", handler.WithLogging(s.Stats, s.logger))
 	s.route.Delete("/api/user/urls", s.DeleteArrayURLJson)
+	// privateRoutes := s.route.Group(func(r chi.Router) {
+	// 	return chi.NewRouter()
+	// })
+	// privateRoutes.DELETE("/api/user/urls", myHandler.DelUserURLS)
 }
 
 func (s *Server) Run() {

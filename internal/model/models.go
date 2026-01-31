@@ -43,3 +43,7 @@ type ShortURL struct {
 // 	CreatedByID   string    `json:"created_by"`     // ID of the user who created the short URL
 // 	CorrelationID string    `json:"correlation_id"` // CorrelationID is used for matching original and shorten urls in shorten batch operation
 // }
+
+type CTXKey string
+
+const UserIDKey CTXKey = "userID"

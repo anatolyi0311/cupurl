@@ -20,6 +20,7 @@ type Repository interface {
 	GetArray(logger zap.SugaredLogger) ([]model.ShortURL, error)
 	Delete(hash string, logger zap.SugaredLogger, userID int) error
 	GetUsersAndUrlsCount(ctx context.Context) (int, int, error)
+	MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error
 }
 
 type URLRecord struct {
@@ -120,3 +121,7 @@ func (s *Storage) Ping() error {
 func (s *Storage) FormatURL(hash string) string {
 	return s.cfg.Opts.BaseURL + "/" + hash
 }
+
+// func (m *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+// 	return nil
+// }
