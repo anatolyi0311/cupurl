@@ -230,6 +230,6 @@ func fanIn(done chan struct{}, channels ...chan model.ShortURL) chan model.Short
 	}()
 	return finalCh
 }
-func (m *Service) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+func (s *Service) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
 	return nil
 }

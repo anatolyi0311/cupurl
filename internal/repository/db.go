@@ -133,7 +133,7 @@ func (s *Storage) GetUsersAndUrlsCount(ctx context.Context) (int, int, error) {
 	return usersCount, urlsCount, err
 }
 
-func (d *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
 	if len(URLSToDel) == 0 {
 		return nil
 	}
@@ -142,7 +142,7 @@ func (d *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) err
 		logrus.Errorf("context value is not userID: %v", userID)
 		return fmt.Errorf("invalid user context")
 	}
-	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{})
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		logrus.Error("Failed to begin transaction: ", err)
 		return err
