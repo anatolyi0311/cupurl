@@ -142,11 +142,6 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, use
 	// 	logrus.Errorf("context value is not userID: %v", userID)
 	// 	return fmt.Errorf("invalid user context")
 	// }
-	// userID, err := jwt.GetUserID(req)
-	// if err != nil {
-	// 	http.Error(res, err.Error(), http.StatusNoContent)
-	// 	return err
-	// }
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
@@ -161,7 +156,7 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, use
 		}
 	}()
 
-	const sqlQuery = `UPDATE cupurl SET deletedFlag = true WHERE shortURL = ANY($1) AND userID = $2`
+	const sqlQuery = `UPDATE cupurl SET deletedFlag = true WHERE shortURL = $1 AND userID = $2`
 	_, err = tx.Exec(sqlQuery, URLSToDel, userID)
 	if err != nil {
 		logrus.Error("Failed to mark URLs as deleted: ", err)
@@ -171,17 +166,17 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, use
 	return tx.Commit()
 }
 
-func (s *Storage) DelUserURLS(c *gin.Context, userID int) {
+func (s *Storage) DelUserURLS(c *gin.Context, hash string, userID int, logger zap.SugaredLogger) error {
 	ctx := c.Request.Context()
 	var URLSToDel []string
 	if err := c.ShouldBindJSON(&URLSToDel); err != nil {
 		logrus.Error(err)
 		c.Status(http.StatusBadRequest)
-		return
+		return err
 	}
 	c.Status(http.StatusAccepted)
 	s.AsyncDeleteUserURLs(ctx, URLSToDel, userID)
-
+	return nil
 }
 func (s *Storage) AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string, userID int) {
 	go func() {
