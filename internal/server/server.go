@@ -213,6 +213,7 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	// 	userID = 1
 	// }
 	// s.logger.Info("GetURLHandler.userID: ", userID, " hash: ", hash)
+	req.AddCookie(&http.Cookie{Name: "jwt_token"})
 	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		s.logger.Warn("not user", err.Error())
@@ -300,6 +301,7 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	// 	return
 	// }
 
+	req.AddCookie(&http.Cookie{Name: "jwt_token"})
 	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		s.logger.Warn("not user ", err.Error())
