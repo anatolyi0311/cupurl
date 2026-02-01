@@ -155,7 +155,7 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, use
 		}
 	}()
 
-	const sqlQuery = `UPDATE cupurl SET deletedFlag = true WHERE shortURL = $1 AND userID = $2`
+	const sqlQuery = `UPDATE cupurl SET deletedFlag = true WHERE shortURL = ANY($1) AND userID = $2`
 	_, err = tx.Exec(sqlQuery, URLSToDel, userID)
 	if err != nil {
 		logrus.Error("Failed to mark URLs as deleted: ", err)
@@ -165,7 +165,7 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, use
 	return tx.Commit()
 }
 
-func (s *Storage) DelUserURLS(c *gin.Context, hash string, userID int, logger zap.SugaredLogger) error {
+func (s *Storage) DelUserURLS(c *gin.Context, hash string, hashArray []string, userID int, logger zap.SugaredLogger) error {
 	// ctx := c.Request.Context()
 	ctx := context.Background()
 	var URLSToDel []string
@@ -175,6 +175,7 @@ func (s *Storage) DelUserURLS(c *gin.Context, hash string, userID int, logger za
 	// 	return err
 	// }
 	// c.Status(http.StatusAccepted)
+	URLSToDel = hashArray
 	s.AsyncDeleteUserURLs(ctx, URLSToDel, userID)
 	return nil
 }

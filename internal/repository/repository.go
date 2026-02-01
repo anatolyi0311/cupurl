@@ -107,7 +107,7 @@ func (s *Storage) Delete(hash string, hashArray []string, logger zap.SugaredLogg
 	if s.db != nil {
 		// err := s.DeleteDB(hash, userID, logger)
 		// err := s.MarkURLsAsDeleted(context.Background(), hashArray, userID)
-		err := s.DelUserURLS(&gin.Context{Request: &http.Request{}},hash, userID, logger)
+		err := s.DelUserURLS(&gin.Context{Request: &http.Request{}}, hash, hashArray, userID, logger)
 		return err
 	}
 	if s.hasFile {
