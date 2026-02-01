@@ -4,14 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net/http"
 	"sync"
 
 	"go.uber.org/zap"
 
 	"github.com/anatolyi0311/cupurl/internal/config"
 	"github.com/anatolyi0311/cupurl/internal/model"
-	"github.com/gin-gonic/gin"
 )
 
 type Repository interface {
@@ -105,9 +103,9 @@ func (s *Storage) SetArrayURL(request []model.SetArrayURLRequest, logger zap.Sug
 
 func (s *Storage) Delete(hash string, hashArray []string, logger zap.SugaredLogger, userID int) error {
 	if s.db != nil {
-		// err := s.DeleteDB(hash, userID, logger)
+		err := s.DeleteDB(hash, userID, logger)
 		// err := s.MarkURLsAsDeleted(context.Background(), hashArray, userID)
-		err := s.DelUserURLS(&gin.Context{Request: &http.Request{}}, hash, hashArray, userID, logger)
+		// err := s.DelUserURLS(&gin.Context{Request: &http.Request{}}, hash, hashArray, userID, logger)
 		return err
 	}
 	if s.hasFile {
