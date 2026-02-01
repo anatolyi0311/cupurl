@@ -26,7 +26,7 @@ func (m *MockCaseURL) Ping() error {
 	return fmt.Errorf("")
 }
 
-func (m *MockCaseURL) GetArrayURL(userID int) ([]model.ShortURL, error) {
+func (m *MockCaseURL) GetArrayURL() ([]model.ShortURL, error) {
 	args := m.Called()
 	return []model.ShortURL{model.ShortURL{OriginalURL: args.String(0)}}, args.Error(1)
 }
