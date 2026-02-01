@@ -74,7 +74,7 @@ func (s *Service) SetURL(urlTo string, userID int) (model.ShortURL, error) {
 	combinedHash := append(hash[:], hash2[:]...)
 
 	shortHashSize := fmt.Sprintf("%x", combinedHash[:sizeHash])
-	s.logger.Info("set url", userID, shortHashSize)
+	// s.logger.Info("set url ", shortHashSize, " userID: ", userID)
 	shortHash, err := s.repo.Set(model.ShortURL{OriginalURL: urlTo, ShortURL: shortHashSize, UserID: userID}, s.logger, userID)
 	if shortHash.ShortURL == "" {
 		s.logger.Warn("url.hash.empty")
@@ -90,7 +90,7 @@ func (s *Service) GetURL(hash string, userID int) (*model.ShortURL, error) {
 	if hash == "" {
 		return &model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
-	s.logger.Info("get url ", userID, hash)
+	// s.logger.Info("get url ", hash, " userID: ", userID)
 	originalURL, err := s.repo.Get(hash, s.logger)
 	return originalURL, err
 }

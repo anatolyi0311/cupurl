@@ -13,7 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Storage) setPsql(shortURL model.ShortURL, _ zap.SugaredLogger, userID int) (*model.ShortURL, error) {
+func (s *Storage) setPsql(shortURL model.ShortURL, logger zap.SugaredLogger, userID int) (*model.ShortURL, error) {
+	logger.Info("set url: ", shortURL, " userID: ", userID)
 	result, err := s.db.Exec(`INSERT INTO cupurl (originalURL, shortURL, userID) VALUES ($1, $2, $3) ON CONFLICT (originalURL) DO NOTHING;`, shortURL.OriginalURL, shortURL.ShortURL, userID)
 	if err != nil {
 		return nil, err
@@ -28,7 +29,8 @@ func (s *Storage) setPsql(shortURL model.ShortURL, _ zap.SugaredLogger, userID i
 	return &model.ShortURL{ShortURL: shortURL.ShortURL, ID: shortURL.ShortURL, UserID: userID}, nil
 }
 
-func (s *Storage) getPsql(hash string, _ zap.SugaredLogger) (*model.ShortURL, error) {
+func (s *Storage) getPsql(hash string, logger zap.SugaredLogger) (*model.ShortURL, error) {
+	logger.Info("get url: ", hash)
 	var originalURL string
 	var isDeleted bool
 	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1;`, hash).Scan(&originalURL, &isDeleted)
@@ -44,7 +46,8 @@ func (s *Storage) getPsql(hash string, _ zap.SugaredLogger) (*model.ShortURL, er
 	return &model.ShortURL{OriginalURL: originalURL, ShortURL: hash, ID: hash}, nil
 }
 
-func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, _ zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
+func (s *Storage) setArrayPsql(request []model.SetArrayURLRequest, logger zap.SugaredLogger, userID int) ([]model.ShortURL, error) {
+	logger.Info("set array url: ", request, " userID: ", userID)
 	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return nil, err
@@ -119,6 +122,7 @@ func (s *Storage) DeleteDB(hash string, userID int, logger zap.SugaredLogger) er
 	if rowsAffected == 0 {
 		return fmt.Errorf("%s", sql.ErrNoRows)
 	}
+	logger.Info("delete url: ", hash)
 	return nil
 }
 
