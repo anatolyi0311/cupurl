@@ -27,10 +27,10 @@ const (
 
 type CaseURL interface {
 	SetURL(url string, userID int) (model.ShortURL, error)
-	GetURL(userID string) (*model.ShortURL, error)
+	GetURL(hash string, userID int) (*model.ShortURL, error)
 	SetArrayURL(request []model.SetArrayURLRequest, userID int) ([]model.ShortURL, error)
 	Ping() error
-	GetArrayURL() ([]model.ShortURL, error)
+	GetArrayURL(userID int) ([]model.ShortURL, error)
 	DeleteArrayURL(hash []string, userID int)                      // variant 2
 	DeleteUrls(context context.Context, hash []string, userID int) // variant 2
 	GetStats(ctx context.Context) (model.Stats, error)
@@ -74,6 +74,7 @@ func (s *Service) SetURL(urlTo string, userID int) (model.ShortURL, error) {
 	combinedHash := append(hash[:], hash2[:]...)
 
 	shortHashSize := fmt.Sprintf("%x", combinedHash[:sizeHash])
+	s.logger.Info("set url", userID, shortHashSize)
 	shortHash, err := s.repo.Set(model.ShortURL{OriginalURL: urlTo, ShortURL: shortHashSize, UserID: userID}, s.logger, userID)
 	if shortHash.ShortURL == "" {
 		s.logger.Warn("url.hash.empty")
@@ -84,11 +85,12 @@ func (s *Service) SetURL(urlTo string, userID int) (model.ShortURL, error) {
 	return *shortHash, err
 }
 
-func (s *Service) GetURL(hash string) (*model.ShortURL, error) {
+func (s *Service) GetURL(hash string, userID int) (*model.ShortURL, error) {
 	hash = strings.TrimSpace(hash)
 	if hash == "" {
 		return &model.ShortURL{}, fmt.Errorf("incorrect id")
 	}
+	s.logger.Info("get url", userID, hash)
 	originalURL, err := s.repo.Get(hash, s.logger)
 	return originalURL, err
 }
@@ -114,7 +116,8 @@ func (s *Service) SetArrayURL(request []model.SetArrayURLRequest, userID int) ([
 	return result, err
 }
 
-func (s *Service) GetArrayURL() ([]model.ShortURL, error) {
+func (s *Service) GetArrayURL(userID int) ([]model.ShortURL, error) {
+	s.logger.Info("get array url", userID)
 	return s.repo.GetArray(s.logger)
 }
 

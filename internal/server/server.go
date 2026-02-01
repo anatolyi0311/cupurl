@@ -213,8 +213,13 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	// 	userID = 1
 	// }
 	// s.logger.Info("GetURLHandler.userID: ", userID, " hash: ", hash)
+	userID, err := jwt.GetUserID(req)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusNoContent)
+		return
+	}
 
-	url, err := s.su.GetURL(hash)
+	url, err := s.su.GetURL(hash, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrDeletedURL) {
 			http.Error(res, err.Error(), http.StatusGone)
@@ -302,7 +307,7 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	s.cfg.Opts.User = userID
 	// s.logger.Info("GetArrayURLJson.userID: ", userID)
 
-	result, err := s.su.GetArrayURL()
+	result, err := s.su.GetArrayURL(userID)
 
 	if err != nil {
 		if errors.Is(err, model.ErrDeletedURL) {

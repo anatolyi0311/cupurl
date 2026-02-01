@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Storage) saveToFile(logger zap.SugaredLogger) error {
+func (s *Storage) saveToFile(logger zap.SugaredLogger, userID int) error {
 	dir := filepath.Dir(s.cfg.Opts.StorageFile)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
@@ -76,9 +76,9 @@ func (s *Storage) setInFile(url, hash string, logger zap.SugaredLogger, userID i
 		OriginalURL: url,
 		UserID:      userID,
 	})
-	err := s.saveToFile(logger)
+	err := s.saveToFile(logger, userID)
 
-	return &model.ShortURL{ShortURL: hash, OriginalURL: url, ID: hash}, err
+	return &model.ShortURL{ShortURL: hash, OriginalURL: url, ID: hash, UserID: userID}, err
 }
 
 func (s *Storage) getFromFile(hash string, logger zap.SugaredLogger) (*model.ShortURL, error) {
@@ -145,11 +145,12 @@ func (s *Storage) setArrayInFile(req []model.SetArrayURLRequest, logger zap.Suga
 			resp = append(resp, model.ShortURL{
 				ID:       item.ID,
 				ShortURL: item.ShortURL,
+				UserID:   userID,
 			})
 		}
 	}
 
-	if err := s.saveToFile(logger); err != nil {
+	if err := s.saveToFile(logger, userID); err != nil {
 		return nil, err
 	}
 
@@ -166,5 +167,5 @@ func (s *Storage) DeleteFile(hash string, logger zap.SugaredLogger, userID int) 
 		}
 	})
 
-	return s.saveToFile(logger)
+	return s.saveToFile(logger, userID)
 }
