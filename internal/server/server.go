@@ -305,8 +305,8 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	userID, err := jwt.GetUserID(req)
 	if err != nil {
 		s.logger.Warn("not user ", err.Error())
-		// http.Error(res, err.Error(), http.StatusNoContent)
-		// return
+		http.Error(res, err.Error(), http.StatusNoContent)
+		return
 	}
 	s.cfg.Opts.User = userID
 	// s.logger.Info("GetArrayURLJson.userID: ", userID)
