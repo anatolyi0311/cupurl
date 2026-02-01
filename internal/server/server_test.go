@@ -71,7 +71,7 @@ func (m *MockCaseURL) GetStats(ctx context.Context) (model.Stats, error) {
 	return model.Stats{UsersCount: args.Int(0), UrlsCount: args.Int(1)}, nil
 }
 
-func (m *MockCaseURL) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+func (m *MockCaseURL) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, userID int) error {
 	// args := m.Called(0, 0)
 	return nil
 }

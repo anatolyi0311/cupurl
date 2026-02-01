@@ -20,8 +20,8 @@ type Repository interface {
 	GetArray(logger zap.SugaredLogger) ([]model.ShortURL, error)
 	Delete(hash string, hashArray []string, logger zap.SugaredLogger, userID int) error
 	GetUsersAndUrlsCount(ctx context.Context) (int, int, error)
-	MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error
-	AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string)
+	MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, userID int) error
+	AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string, userID int)
 }
 
 type URLRecord struct {
@@ -103,7 +103,7 @@ func (s *Storage) SetArrayURL(request []model.SetArrayURLRequest, logger zap.Sug
 
 func (s *Storage) Delete(hash string, hashArray []string, logger zap.SugaredLogger, userID int) error {
 	if s.db != nil {
-		err := s.MarkURLsAsDeleted(context.Background(), hashArray) // s.DeleteDB(hash, userID, logger)
+		err := s.MarkURLsAsDeleted(context.Background(), hashArray, userID) // s.DeleteDB(hash, userID, logger)
 		return err
 	}
 	if s.hasFile {

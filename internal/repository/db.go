@@ -103,13 +103,13 @@ func (s *Storage) DeleteDB(hash string, userID int, logger zap.SugaredLogger) er
 	var originalURL string
 	var isDeleted bool
 
-	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = $1 AND userID = $2;`, hash, userID).Scan(&originalURL, &isDeleted)
+	err := s.db.QueryRow(`SELECT originalURL, deletedFlag FROM cupurl WHERE shortURL = ANY($1) AND userID = $2;`, hash, userID).Scan(&originalURL, &isDeleted)
 	if err != nil {
 		logger.Warnf("%s", err)
 		return fmt.Errorf("%s", sql.ErrNoRows)
 	}
 
-	result, err := s.db.Exec(`UPDATE cupurl SET deletedFlag = true WHERE shortURL = $1 AND userID = $2;`, hash, userID)
+	result, err := s.db.Exec(`UPDATE cupurl SET deletedFlag = true WHERE shortURL = ANY($1) AND userID = $2;`, hash, userID)
 	if err != nil {
 		return fmt.Errorf("failed delete %s; %w", hash, err)
 	}
@@ -133,15 +133,21 @@ func (s *Storage) GetUsersAndUrlsCount(ctx context.Context) (int, int, error) {
 	return usersCount, urlsCount, err
 }
 
-func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, userID int) error {
 	if len(URLSToDel) == 0 {
 		return nil
 	}
-	userID, ok := ctx.Value(model.UserIDKey).(uint32)
-	if !ok {
-		logrus.Errorf("context value is not userID: %v", userID)
-		return fmt.Errorf("invalid user context")
-	}
+	// userID, ok := ctx.Value(model.UserIDKey).(uint32)
+	// if !ok {
+	// 	logrus.Errorf("context value is not userID: %v", userID)
+	// 	return fmt.Errorf("invalid user context")
+	// }
+	// userID, err := jwt.GetUserID(req)
+	// if err != nil {
+	// 	http.Error(res, err.Error(), http.StatusNoContent)
+	// 	return err
+	// }
+
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		logrus.Error("Failed to begin transaction: ", err)
@@ -155,7 +161,7 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) err
 		}
 	}()
 
-	const sqlQuery = `UPDATE shortedurl SET deletedFlag = true WHERE shortURL = ANY($1) AND userID = $2`
+	const sqlQuery = `UPDATE cupurl SET deletedFlag = true WHERE shortURL = ANY($1) AND userID = $2`
 	_, err = tx.Exec(sqlQuery, URLSToDel, userID)
 	if err != nil {
 		logrus.Error("Failed to mark URLs as deleted: ", err)
@@ -165,7 +171,7 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) err
 	return tx.Commit()
 }
 
-func (s *Storage) DelUserURLS(c *gin.Context) {
+func (s *Storage) DelUserURLS(c *gin.Context, userID int) {
 	ctx := c.Request.Context()
 	var URLSToDel []string
 	if err := c.ShouldBindJSON(&URLSToDel); err != nil {
@@ -174,14 +180,14 @@ func (s *Storage) DelUserURLS(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusAccepted)
-	s.AsyncDeleteUserURLs(ctx, URLSToDel)
+	s.AsyncDeleteUserURLs(ctx, URLSToDel, userID)
 
 }
-func (s *Storage) AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string) {
+func (s *Storage) AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string, userID int) {
 	go func() {
 		asyncCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 		defer cancel()
-		if err := s.MarkURLsAsDeleted(asyncCtx, URLSToDel); err != nil {
+		if err := s.MarkURLsAsDeleted(asyncCtx, URLSToDel, userID); err != nil {
 			logrus.Error(err)
 		}
 	}()

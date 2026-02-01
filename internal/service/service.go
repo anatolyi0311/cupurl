@@ -34,7 +34,7 @@ type CaseURL interface {
 	DeleteArrayURL(hash []string, userID int)                      // variant 2
 	DeleteUrls(context context.Context, hash []string, userID int) // variant 2
 	GetStats(ctx context.Context) (model.Stats, error)
-	MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error
+	MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, userID int) error
 }
 
 type Service struct {
@@ -232,11 +232,11 @@ func fanIn(done chan struct{}, channels ...chan model.ShortURL) chan model.Short
 	}()
 	return finalCh
 }
-func (s *Service) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
+func (s *Service) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, userID int) error {
 	return nil
 }
 
-func (s *Service) DelUserURLS(c *gin.Context) {
+func (s *Service) DelUserURLS(c *gin.Context, userID int) {
 	ctx := c.Request.Context()
 	var URLSToDel []string
 	if err := c.ShouldBindJSON(&URLSToDel); err != nil {
@@ -245,6 +245,6 @@ func (s *Service) DelUserURLS(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusAccepted)
-	s.repo.AsyncDeleteUserURLs(ctx, URLSToDel)
+	s.repo.AsyncDeleteUserURLs(ctx, URLSToDel, userID)
 
 }

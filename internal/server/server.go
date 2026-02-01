@@ -62,6 +62,7 @@ func (s *Server) router() {
 	s.route.Use(handler.HandLogger)
 	s.route.Use(handler.Compress)
 	s.route.Use(jwt.Cookies)
+	// s.route.Use(handler.MiddlewareAuthPublic)
 
 	s.route.Post("/", s.SetURLHandler)
 	s.route.Post("/api/shorten", s.SetJSONHandler)
