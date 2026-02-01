@@ -214,10 +214,11 @@ func (s *Server) GetURLHandler(res http.ResponseWriter, req *http.Request) {
 	// }
 	// s.logger.Info("GetURLHandler.userID: ", userID, " hash: ", hash)
 	userID, err := jwt.GetUserID(req)
-	// if err != nil {
-	// 	http.Error(res, err.Error(), http.StatusNoContent)
-	// 	return
-	// }
+	if err != nil {
+		s.logger.Warn("not user", err.Error())
+		// http.Error(res, err.Error(), http.StatusNoContent)
+		// return
+	}
 
 	url, err := s.su.GetURL(hash, userID)
 	if err != nil {
@@ -300,10 +301,11 @@ func (s *Server) GetArrayURLJson(res http.ResponseWriter, req *http.Request) {
 	// }
 
 	userID, err := jwt.GetUserID(req)
-	// if err != nil {
-	// 	http.Error(res, err.Error(), http.StatusNoContent)
-	// 	return
-	// }
+	if err != nil {
+		s.logger.Warn("not user", err.Error())
+		// http.Error(res, err.Error(), http.StatusNoContent)
+		// return
+	}
 	s.cfg.Opts.User = userID
 	// s.logger.Info("GetArrayURLJson.userID: ", userID)
 
