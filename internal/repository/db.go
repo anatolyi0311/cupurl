@@ -168,15 +168,14 @@ func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, use
 func (s *Storage) DelUserURLS(c *gin.Context, hash string, hashArray []string, userID int, logger zap.SugaredLogger) error {
 	// ctx := c.Request.Context()
 	ctx := context.Background()
-	var URLSToDel []string
+	// var URLSToDel []string
 	// if err := c.ShouldBindJSON(&URLSToDel); err != nil {
 	// 	logrus.Error(err)
 	// 	c.Status(http.StatusBadRequest)
 	// 	return err
 	// }
 	// c.Status(http.StatusAccepted)
-	URLSToDel = hashArray
-	s.AsyncDeleteUserURLs(ctx, URLSToDel, userID)
+	s.AsyncDeleteUserURLs(ctx, hashArray, userID)
 	return nil
 }
 func (s *Storage) AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string, userID int) {
