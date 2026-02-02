@@ -64,7 +64,7 @@ func main() {
 
 	publicRoutes.POST("/", myHandler.GetShortURL)
 	publicRoutes.GET("/ping", myHandler.PingDB)
-	publicRoutes.GET("/:id", myHandler.GetOriginalURL)
+	publicRoutes.GET("/{id}", myHandler.GetOriginalURL)
 	publicRoutes.POST("/api/shorten", myHandler.GetJSONShortURL)
 	publicRoutes.POST("/api/shorten/batch", myHandler.GetBatchShortURL)
 	//Private middleware routers group
