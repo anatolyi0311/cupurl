@@ -331,11 +331,13 @@ func (h Handlers) MiddlewareAuthPrivate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString, err := c.Cookie("user_token")
 		if err != nil {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			// c.AbortWithStatus(http.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusNoContent)
 		}
 		userID, err := auth.GetUserID(tokenString)
 		if err != nil {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			// c.AbortWithStatus(http.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusNoContent)
 		}
 		ctx := context.WithValue(c.Request.Context(), models.UserIDKey, userID)
 		c.Request = c.Request.WithContext(ctx)
