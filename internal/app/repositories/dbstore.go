@@ -134,7 +134,7 @@ func (d *URLInDBRepo) GetOriginalURLFromDB(ctx context.Context, shortURL string)
 }
 
 func (d *URLInDBRepo) GetShortURLFromDB(ctx context.Context, originalURL string) (string, error) {
-	const selectQuery = `SELECT cupurl FROM shortedurl WHERE originalurl = $1`
+	const selectQuery = `SELECT shorturl FROM cupurl WHERE originalurl = $1`
 	var shortURL string
 	err := d.DB.QueryRow(ctx, selectQuery, originalURL).Scan(&shortURL)
 	if err != nil {
@@ -149,7 +149,7 @@ func (d *URLInDBRepo) GetShortURLFromDB(ctx context.Context, originalURL string)
 }
 
 func (d *URLInDBRepo) GetUserURLSFromDB(ctx context.Context) ([]models.URL, error) {
-	const selectQuery = `SELECT cupurl,originalurl FROM shortedurl WHERE userid = $1`
+	const selectQuery = `SELECT shorturl,originalurl FROM cupurl WHERE userid = $1`
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
 	if !ok {
 		logrus.Errorf("context value is not userID: %v", userID)
@@ -189,7 +189,7 @@ func (d *URLInDBRepo) GetShortBatchURLFromDB(ctx context.Context, batchURLReques
 	if err != nil {
 		return nil, err
 	}
-	const selectQuery = `SELECT cupurl FROM shortedurl WHERE originalurl = $1`
+	const selectQuery = `SELECT shorturl FROM cupurl WHERE originalurl = $1`
 	for _, request := range batchURLRequests {
 		err = tx.QueryRow(ctx, selectQuery, request.OriginalURL).Scan(&shortURL)
 		if err != nil {
