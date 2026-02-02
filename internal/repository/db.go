@@ -136,6 +136,34 @@ func (s *Storage) GetUsersAndUrlsCount(ctx context.Context) (int, int, error) {
 	return usersCount, urlsCount, err
 }
 
+func (s *Storage) DeleteDB2(ctx context.Context, URLToDel string, URLSToDel []string, userID int, logger zap.SugaredLogger) error {
+	// if len(URLSToDel) == 0 {
+	// 	return nil
+	// }
+
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		logrus.Error("Failed to begin transaction: ", err)
+		return err
+	}
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				logrus.Errorf("Failed to rollback transaction: %v", rollbackErr)
+			}
+		}
+	}()
+
+	const sqlQuery = `UPDATE cupurl SET deletedFlag = true WHERE shortURL = $1 AND userID = $2`
+	_, err = tx.Exec(sqlQuery, URLToDel, userID)
+	if err != nil {
+		logrus.Error("Failed to mark URLs as deleted: ", err)
+		return err
+	}
+	logrus.Infof("Complete mark URLs as deleted: %s, %d", URLToDel, userID)
+	return tx.Commit()
+}
+
 func (s *Storage) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string, userID int) error {
 	if len(URLSToDel) == 0 {
 		return nil
