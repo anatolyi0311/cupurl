@@ -140,8 +140,10 @@ func (s *Storage) DeleteDB2(ctx context.Context, URLToDel string, URLSToDel []st
 	// if len(URLSToDel) == 0 {
 	// 	return nil
 	// }
+	asyncCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
 
-	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	tx, err := s.db.BeginTx(asyncCtx, &sql.TxOptions{})
 	if err != nil {
 		logrus.Error("Failed to begin transaction: ", err)
 		return err
