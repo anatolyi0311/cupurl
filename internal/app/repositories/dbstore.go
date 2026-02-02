@@ -28,7 +28,7 @@ func NewURLInDBRepo(DB *pgxpool.Pool) *URLInDBRepo {
 func (d *URLInDBRepo) CreateBDTable() error {
 	ctx := context.Background()
 	sqlQuery := `
-		CREATE TABLE IF NOT EXISTS shortedurl (
+		CREATE TABLE IF NOT EXISTS cupurl (
 		"userid" integer NOT NULL,
 		"shorturl" VARCHAR(250) NOT NULL,
 		"originalurl" VARCHAR(4096) NOT NULL UNIQUE,
@@ -36,18 +36,19 @@ func (d *URLInDBRepo) CreateBDTable() error {
 	)`
 	_, err := d.DB.Exec(ctx, sqlQuery)
 	if err != nil {
-		logrus.Errorf("don't create table shortedurl: %v", err)
+		logrus.Errorf("don't create table cupurl: %v", err)
 		return err
 	}
-	logrus.Info("Successfully created table shortedurl")
+	logrus.Info("Successfully created table cupurl")
 	return nil
 }
+
 func (d *URLInDBRepo) StoreURLInDB(ctx context.Context, originalURL, shortURL string) error {
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
 	if !ok {
 		logrus.Errorf("context value is not userID: %v", userID)
 	}
-	const sqlQuery = `INSERT INTO shortedurl (userid, originalurl, shorturl) VALUES ($1, $2, $3) ON CONFLICT (originalurl) DO NOTHING`
+	const sqlQuery = `INSERT INTO cupurl (userid, originalurl, shorturl) VALUES ($1, $2, $3) ON CONFLICT (originalurl) DO NOTHING`
 	_, err := d.DB.Exec(ctx, sqlQuery, userID, originalURL, shortURL)
 	if err != nil {
 		logrus.Error("url don't save in database ", err)
@@ -55,6 +56,7 @@ func (d *URLInDBRepo) StoreURLInDB(ctx context.Context, originalURL, shortURL st
 	}
 	return nil
 }
+
 func (d *URLInDBRepo) StoreBatchURLInDB(ctx context.Context, batchURLtoStores map[string]string) error {
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
 	if !ok {
@@ -64,7 +66,7 @@ func (d *URLInDBRepo) StoreBatchURLInDB(ctx context.Context, batchURLtoStores ma
 	if err != nil {
 		return err
 	}
-	const sqlQuery = `INSERT INTO shortedurl (userid, originalurl, shorturl) VALUES ($1, $2, $3) ON CONFLICT (originalurl) DO NOTHING`
+	const sqlQuery = `INSERT INTO cupurl (userid, originalurl, shorturl) VALUES ($1, $2, $3) ON CONFLICT (originalurl) DO NOTHING`
 	_, err = tx.Prepare(ctx, "store_batch_url", sqlQuery)
 	if err != nil {
 		return err
@@ -79,6 +81,7 @@ func (d *URLInDBRepo) StoreBatchURLInDB(ctx context.Context, batchURLtoStores ma
 	}
 	return tx.Commit(ctx)
 }
+
 func (d *URLInDBRepo) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
 	if len(URLSToDel) == 0 {
 		return nil
@@ -101,7 +104,7 @@ func (d *URLInDBRepo) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string)
 		}
 	}()
 
-	const sqlQuery = `UPDATE shortedurl SET deletedflag = true WHERE shorturl = ANY($1) AND userid = $2`
+	const sqlQuery = `UPDATE cupurl SET deletedflag = true WHERE shorturl = ANY($1) AND userid = $2`
 	_, err = tx.Exec(ctx, sqlQuery, URLSToDel, userID)
 	if err != nil {
 		logrus.Error("Failed to mark URLs as deleted: ", err)
@@ -110,8 +113,9 @@ func (d *URLInDBRepo) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string)
 	logrus.Infof("Complete mark URLs as deleted: %s, %d", URLSToDel, userID)
 	return tx.Commit(ctx)
 }
+
 func (d *URLInDBRepo) GetOriginalURLFromDB(ctx context.Context, shortURL string) (string, error) {
-	const selectQuery = `SELECT originalurl, deletedflag FROM shortedurl WHERE shorturl = $1`
+	const selectQuery = `SELECT originalurl, deletedflag FROM cupurl WHERE shorturl = $1`
 	var originalURL string
 	var deletedFlag bool
 	err := d.DB.QueryRow(ctx, selectQuery, shortURL).Scan(&originalURL, &deletedFlag)
@@ -128,8 +132,9 @@ func (d *URLInDBRepo) GetOriginalURLFromDB(ctx context.Context, shortURL string)
 	}
 	return originalURL, nil
 }
+
 func (d *URLInDBRepo) GetShortURLFromDB(ctx context.Context, originalURL string) (string, error) {
-	const selectQuery = `SELECT shorturl FROM shortedurl WHERE originalurl = $1`
+	const selectQuery = `SELECT cupurl FROM shortedurl WHERE originalurl = $1`
 	var shortURL string
 	err := d.DB.QueryRow(ctx, selectQuery, originalURL).Scan(&shortURL)
 	if err != nil {
@@ -142,8 +147,9 @@ func (d *URLInDBRepo) GetShortURLFromDB(ctx context.Context, originalURL string)
 	}
 	return shortURL, nil
 }
+
 func (d *URLInDBRepo) GetUserURLSFromDB(ctx context.Context) ([]models.URL, error) {
-	const selectQuery = `SELECT shorturl,originalurl FROM shortedurl WHERE userid = $1`
+	const selectQuery = `SELECT cupurl,originalurl FROM shortedurl WHERE userid = $1`
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
 	if !ok {
 		logrus.Errorf("context value is not userID: %v", userID)
@@ -172,6 +178,7 @@ func (d *URLInDBRepo) GetUserURLSFromDB(ctx context.Context) ([]models.URL, erro
 	}
 	return userURLS, nil
 }
+
 func (d *URLInDBRepo) GetShortBatchURLFromDB(ctx context.Context, batchURLRequests []models.URLRequest) (map[string]string, error) {
 	var shortsURL = make(map[string]string, len(batchURLRequests))
 	var shortURL string
@@ -182,7 +189,7 @@ func (d *URLInDBRepo) GetShortBatchURLFromDB(ctx context.Context, batchURLReques
 	if err != nil {
 		return nil, err
 	}
-	const selectQuery = `SELECT shorturl FROM shortedurl WHERE originalurl = $1`
+	const selectQuery = `SELECT cupurl FROM shortedurl WHERE originalurl = $1`
 	for _, request := range batchURLRequests {
 		err = tx.QueryRow(ctx, selectQuery, request.OriginalURL).Scan(&shortURL)
 		if err != nil {

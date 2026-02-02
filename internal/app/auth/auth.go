@@ -2,10 +2,11 @@ package auth
 
 import (
 	"fmt"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/sirupsen/logrus"
 	"math/rand"
 	"time"
+
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/sirupsen/logrus"
 )
 
 // Claims — claims structure that includes standard claims and UserID
@@ -19,8 +20,10 @@ const (
 	SecretKey = "SnJSkf123jlLKNfsNln"
 )
 
-// BuildJWTString creates a token with the HS256 signature algorithm and Claims statements and returns it as a string.
-func BuildJWTString() (string, error) {
+func BuildJWTString(secretKey string) (string, error) {
+	if secretKey == "" {
+		secretKey = SecretKey
+	}
 	userID := generateUniqueID()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -30,7 +33,7 @@ func BuildJWTString() (string, error) {
 		UserID: userID,
 	})
 	// создаём строку токена
-	tokenString, err := token.SignedString([]byte(SecretKey))
+	tokenString, err := token.SignedString([]byte(secretKey))
 	if err != nil {
 		logrus.Error(err)
 		return "", err
@@ -38,7 +41,6 @@ func BuildJWTString() (string, error) {
 	return tokenString, nil
 }
 
-// generate Unique ID generate a unique UserID from 0 to 999999
 func generateUniqueID() uint32 {
 	rand.NewSource(time.Now().UnixNano())
 	id := uint32(rand.Intn(1000000))
@@ -46,14 +48,17 @@ func generateUniqueID() uint32 {
 	return id
 }
 
-// GetUserID we check the validity of the token and if it is valid, then we get and return the UserID from it
-func GetUserID(tokenString string) (uint32, error) {
+func GetUserID(tokenString, secretKey string) (uint32, error) {
+	if secretKey == "" {
+		secretKey = SecretKey
+	}
+
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signed method: %v", t.Header["alg"])
 		}
-		return []byte(SecretKey), nil
+		return []byte(secretKey), nil
 	})
 	if err != nil {
 		logrus.Error(err)
@@ -68,14 +73,17 @@ func GetUserID(tokenString string) (uint32, error) {
 	return claims.UserID, nil
 }
 
-// IsValidToken method to check the token for validity, we return bool
-func IsValidToken(tokenString string) bool {
+func IsValidToken(tokenString, secretKey string) bool {
+	if secretKey == "" {
+		secretKey = SecretKey
+	}
+
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signed method: %v", t.Header["alg"])
 		}
-		return []byte(SecretKey), nil
+		return []byte(secretKey), nil
 	})
 	if err != nil {
 		logrus.Error(err)

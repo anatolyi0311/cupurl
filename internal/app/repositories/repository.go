@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/anatolyi0311/cupurl/internal/app/models"
-	"github.com/sirupsen/logrus"
 	"os"
 	"time"
+
+	"github.com/anatolyi0311/cupurl/internal/app/models"
+	"github.com/sirupsen/logrus"
 )
 
 // URLInFileRepo auxiliary structure for serialization in jSON for save to file
@@ -66,7 +67,10 @@ func (m *URLInMemoryRepo) readFileToMemoryURL() error {
 		}
 		m.shortToOrigURL[bufferJSON.ShortURL] = bufferJSON.OriginalURL
 		m.origToShortURL[bufferJSON.OriginalURL] = bufferJSON.ShortURL
-		m.usersURLS[bufferJSON.UserID] = append(m.usersURLS[bufferJSON.UserID], models.URL{ShortURL: bufferJSON.ShortURL, OriginalURL: bufferJSON.OriginalURL})
+		m.usersURLS[bufferJSON.UserID] = append(
+			m.usersURLS[bufferJSON.UserID],
+			models.URL{ShortURL: bufferJSON.ShortURL, OriginalURL: bufferJSON.OriginalURL},
+		)
 	}
 	if err = scanner.Err(); err != nil {
 		logrus.Error(err)
@@ -75,7 +79,6 @@ func (m *URLInMemoryRepo) readFileToMemoryURL() error {
 	return nil
 }
 
-// SaveBatchToFile read data from the memory (URLInMemoryRepo batchBuffer) and write to the file in a batch operation
 func (m *URLInMemoryRepo) SaveBatchToFile() error {
 	startTime := time.Now() // Засекаем время начала операции
 	file, err := os.OpenFile(m.storageFilePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
@@ -102,6 +105,7 @@ func (m *URLInMemoryRepo) SaveBatchToFile() error {
 	m.batchBuffer = make([]URLInFileRepo, 0, m.batchSize)
 	return nil
 }
+
 func (m *URLInMemoryRepo) StoreURLInDB(ctx context.Context, originalURL, shortURL string) error {
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
 	if !ok {
@@ -134,6 +138,7 @@ func (m *URLInMemoryRepo) StoreURLInDB(ctx context.Context, originalURL, shortUR
 	}
 	return nil
 }
+
 func (m *URLInMemoryRepo) GetOriginalURLFromDB(ctx context.Context, shortURL string) (string, error) {
 	originalURL, exists := m.shortToOrigURL[shortURL]
 	if !exists {
@@ -141,6 +146,7 @@ func (m *URLInMemoryRepo) GetOriginalURLFromDB(ctx context.Context, shortURL str
 	}
 	return originalURL, nil
 }
+
 func (m *URLInMemoryRepo) GetShortURLFromDB(ctx context.Context, originalURL string) (string, error) {
 	shortURL, exists := m.origToShortURL[originalURL]
 	if !exists {
@@ -148,6 +154,7 @@ func (m *URLInMemoryRepo) GetShortURLFromDB(ctx context.Context, originalURL str
 	}
 	return shortURL, nil
 }
+
 func (m *URLInMemoryRepo) StoreBatchURLInDB(ctx context.Context, batchURLtoStores map[string]string) error {
 	for shortURL, originalURL := range batchURLtoStores {
 		if err := m.StoreURLInDB(ctx, originalURL, shortURL); err != nil {
@@ -157,6 +164,7 @@ func (m *URLInMemoryRepo) StoreBatchURLInDB(ctx context.Context, batchURLtoStore
 	}
 	return nil
 }
+
 func (m *URLInMemoryRepo) GetShortBatchURLFromDB(ctx context.Context, batchURLRequests []models.URLRequest) (map[string]string, error) {
 	var shortsURL = make(map[string]string, len(batchURLRequests))
 
@@ -168,6 +176,7 @@ func (m *URLInMemoryRepo) GetShortBatchURLFromDB(ctx context.Context, batchURLRe
 
 	return shortsURL, nil
 }
+
 func (m *URLInMemoryRepo) GetUserURLSFromDB(ctx context.Context) ([]models.URL, error) {
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
 	if !ok {
@@ -179,6 +188,7 @@ func (m *URLInMemoryRepo) GetUserURLSFromDB(ctx context.Context) ([]models.URL, 
 	}
 	return userURLS, nil
 }
+
 func (m *URLInMemoryRepo) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
 	return nil
 }

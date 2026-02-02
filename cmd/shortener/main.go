@@ -53,7 +53,7 @@ func main() {
 	logcfg.RunLoggerConfig(cfg.EnvLogLevel)
 	logrus.Infof("Server started:\nServer addres %s\nBase URL %s\nFile path %s\nDBConfig %s\n", cfg.EnvServAdr, cfg.EnvBaseURL, cfg.EnvStoragePath, cfg.EnvDataBase)
 	myShorURLService := services.NewShortURLServices(myRepository, services.ShortURLServices{}, cfg.EnvBaseURL)
-	myHandler := handlers.NewHandlers(myShorURLService, dbPool)
+	myHandler := handlers.NewHandlers(myShorURLService, dbPool, cfg.EnvSecretKey)
 
 	router := gin.Default()
 	//Public middleware routers group
