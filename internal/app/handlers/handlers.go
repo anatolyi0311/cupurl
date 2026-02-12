@@ -64,11 +64,11 @@ func NewHandlers(service Service, DB *pgxpool.Pool, cfg *config.ENVConfig) *Hand
 	}
 }
 
-func (s *Handlers) sendEvent(event audit.Event) {
-	if s.audit == nil {
+func (h *Handlers) sendEvent(event audit.Event) {
+	if h.audit == nil {
 		return
 	}
-	s.audit.Update(event)
+	h.audit.Update(event)
 }
 func (h Handlers) GetShortURL(c *gin.Context) {
 	ctx := c.Request.Context()
