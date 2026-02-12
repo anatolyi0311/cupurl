@@ -94,17 +94,19 @@ func (h Handlers) GetShortURL(c *gin.Context) {
 		return
 	}
 
-	tokenString, err := c.Cookie("user_token")
-	if err != nil {
-		logrus.Error(err)
-		return
+	if h.audit != nil {
+		tokenString, err := c.Cookie("user_token")
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		userID, err := auth.GetUserID(tokenString, h.SecretKey)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		h.sendEvent(audit.CreateEvent(int(userID), audit.Shorten, string(link)))
 	}
-	userID, err := auth.GetUserID(tokenString, h.SecretKey)
-	if err != nil {
-		logrus.Error(err)
-		return
-	}
-	h.sendEvent(audit.CreateEvent(int(userID), audit.Shorten, string(link)))
 
 	c.String(http.StatusCreated, shortURL)
 
@@ -123,17 +125,19 @@ func (h Handlers) GetOriginalURL(c *gin.Context) {
 		return
 	}
 
-	tokenString, err := c.Cookie("user_token")
-	if err != nil {
-		logrus.Error(err)
-		return
+	if h.audit != nil {
+		tokenString, err := c.Cookie("user_token")
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		userID, err := auth.GetUserID(tokenString, h.SecretKey)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, originURL))
 	}
-	userID, err := auth.GetUserID(tokenString, h.SecretKey)
-	if err != nil {
-		logrus.Error(err)
-		return
-	}
-	h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, originURL))
 
 	c.Header("Location", originURL)
 	c.Status(http.StatusTemporaryRedirect)
@@ -156,17 +160,19 @@ func (h Handlers) GetJSONShortURL(c *gin.Context) {
 		return
 	}
 
-	tokenString, err := c.Cookie("user_token")
-	if err != nil {
-		logrus.Error(err)
-		return
+	if h.audit != nil {
+		tokenString, err := c.Cookie("user_token")
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		userID, err := auth.GetUserID(tokenString, h.SecretKey)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, result))
 	}
-	userID, err := auth.GetUserID(tokenString, h.SecretKey)
-	if err != nil {
-		logrus.Error(err)
-		return
-	}
-	h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, result))
 
 	c.JSON(http.StatusCreated, gin.H{"result": result})
 }
