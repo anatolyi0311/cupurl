@@ -95,7 +95,15 @@ func (h Handlers) GetShortURL(c *gin.Context) {
 	}
 
 	tokenString, err := c.Cookie("user_token")
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
 	userID, err := auth.GetUserID(tokenString, h.SecretKey)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
 	h.sendEvent(audit.CreateEvent(int(userID), audit.Shorten, string(link)))
 
 	c.String(http.StatusCreated, shortURL)
@@ -116,7 +124,15 @@ func (h Handlers) GetOriginalURL(c *gin.Context) {
 	}
 
 	tokenString, err := c.Cookie("user_token")
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
 	userID, err := auth.GetUserID(tokenString, h.SecretKey)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
 	h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, originURL))
 
 	c.Header("Location", originURL)
@@ -141,7 +157,15 @@ func (h Handlers) GetJSONShortURL(c *gin.Context) {
 	}
 
 	tokenString, err := c.Cookie("user_token")
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
 	userID, err := auth.GetUserID(tokenString, h.SecretKey)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
 	h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, result))
 
 	c.JSON(http.StatusCreated, gin.H{"result": result})
