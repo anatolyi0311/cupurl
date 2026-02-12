@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/anatolyi0311/cupurl/internal/app/audit"
 	"github.com/anatolyi0311/cupurl/internal/app/auth"
+	"github.com/anatolyi0311/cupurl/internal/app/config"
 	"github.com/anatolyi0311/cupurl/internal/app/models"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,6 +32,7 @@ type Handlers struct {
 	service   Service
 	DB        *pgxpool.Pool
 	SecretKey string
+	audit     audit.Observer
 }
 
 type URLProcessing struct {
@@ -48,14 +51,25 @@ type loggingResponseWriter struct {
 
 var typeArray = [2]string{"application/json", "text/html"}
 
-func NewHandlers(service Service, DB *pgxpool.Pool, secretKey string) *Handlers {
+func NewHandlers(service Service, DB *pgxpool.Pool, cfg *config.ENVConfig) *Handlers {
+	audit, err := audit.New(cfg)
+	if err != nil {
+		logrus.Warn("audit not init")
+	}
 	return &Handlers{
 		service:   service,
 		DB:        DB,
-		SecretKey: secretKey,
+		SecretKey: cfg.EnvSecretKey,
+		audit:     audit,
 	}
 }
 
+func (s *Handlers) sendEvent(event audit.Event) {
+	if s.audit == nil {
+		return
+	}
+	s.audit.Update(event)
+}
 func (h Handlers) GetShortURL(c *gin.Context) {
 	ctx := c.Request.Context()
 	link, err := c.GetRawData()
@@ -79,6 +93,11 @@ func (h Handlers) GetShortURL(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 		return
 	}
+
+	tokenString, err := c.Cookie("user_token")
+	userID, err := auth.GetUserID(tokenString, h.SecretKey)
+	h.sendEvent(audit.CreateEvent(int(userID), audit.Shorten, string(link)))
+
 	c.String(http.StatusCreated, shortURL)
 
 }
@@ -95,6 +114,11 @@ func (h Handlers) GetOriginalURL(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 		return
 	}
+
+	tokenString, err := c.Cookie("user_token")
+	userID, err := auth.GetUserID(tokenString, h.SecretKey)
+	h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, originURL))
+
 	c.Header("Location", originURL)
 	c.Status(http.StatusTemporaryRedirect)
 }
@@ -115,6 +139,11 @@ func (h Handlers) GetJSONShortURL(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 		return
 	}
+
+	tokenString, err := c.Cookie("user_token")
+	userID, err := auth.GetUserID(tokenString, h.SecretKey)
+	h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, result))
+
 	c.JSON(http.StatusCreated, gin.H{"result": result})
 }
 

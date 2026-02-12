@@ -14,6 +14,8 @@ type ENVConfig struct {
 	EnvLogLevel    string `env:"LOG_LEVEL"`
 	EnvDataBase    string `env:"DATABASE_DSN"`
 	EnvSecretKey   string `env:"SECRET_KEY"`
+	AuditFile      string `env:"AUDIT_FILE"`
+	AuditURL       string `env:"AUDIT_URL"`
 }
 
 func NewConfig() *ENVConfig {
@@ -25,6 +27,8 @@ func NewConfig() *ENVConfig {
 	flag.StringVar(&cfg.EnvLogLevel, "l", "info", "Set logg level")
 	flag.StringVar(&cfg.EnvDataBase, "d", "", "Set connect DB config")
 	flag.StringVar(&cfg.EnvSecretKey, "s", "", "Set secret key")
+	flag.StringVar(&cfg.AuditFile, "audit-file", "", "audit file save events")
+	flag.StringVar(&cfg.AuditURL, "audit-url", "", "audit url send events")
 
 	flag.Parse()
 
