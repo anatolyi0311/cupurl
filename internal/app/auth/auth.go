@@ -2,10 +2,11 @@ package auth
 
 import (
 	"fmt"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/sirupsen/logrus"
 	"math/rand"
 	"time"
+
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/sirupsen/logrus"
 )
 
 // Claims — claims structure that includes standard claims and UserID

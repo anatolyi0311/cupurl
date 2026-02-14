@@ -25,7 +25,7 @@ func toDel() bool {
 	}
 
 	long = strings.TrimSuffix(long, "\n")
- log.Println("long", long)
+	log.Println("long", long)
 	request, err := http.NewRequest(http.MethodDelete, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
 		log.Fatalln(err)
