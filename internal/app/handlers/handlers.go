@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/pprof"
 	"net/url"
 	"strings"
 	"time"
@@ -228,6 +229,18 @@ func (h Handlers) PingDB(c *gin.Context) {
 	}
 	c.Status(http.StatusInternalServerError)
 
+}
+
+func (h Handlers) PprofIndex(c *gin.Context) {
+	pprof.Index(c.Writer, c.Request)
+}
+
+func (h Handlers) PprofProfile(c *gin.Context) {
+	pprof.Profile(c.Writer, c.Request)
+}
+
+func (h Handlers) PprofGoroutine(c *gin.Context) {
+	pprof.Handler("goroutine").ServeHTTP(c.Writer, c.Request)
 }
 
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {

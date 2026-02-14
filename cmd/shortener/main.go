@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	// "runtime"
+	// rpprf "runtime/pprof"
 	"syscall"
 	"time"
 
@@ -56,6 +59,14 @@ func main() {
 	myHandler := handlers.NewHandlers(myShorURLService, dbPool, cfg)
 
 	router := gin.Default()
+
+	// Pprof роутер
+	pprofRouter := router.Group("/debug/pprof")
+	// pprofRouter.Handle("GET", "/", myHandler.PprofIndex)
+	pprofRouter.GET("/", myHandler.PprofIndex)
+	pprofRouter.GET("/profile", myHandler.PprofProfile)
+	pprofRouter.GET("/goroutine", myHandler.PprofGoroutine)
+
 	//Public middleware routers group
 	publicRoutes := router.Group("/")
 	publicRoutes.Use(myHandler.MiddlewareAuthPublic())
@@ -77,6 +88,11 @@ func main() {
 	privateRoutes.DELETE("/api/user/urls", myHandler.DelUserURLS)
 
 	server := &http.Server{Addr: cfg.EnvServAdr, Handler: router}
+
+	// Запуск отдельного pprof-сервера
+	// go func() {
+	// 	_ = http.ListenAndServe("localhost:6060", nil)
+	// }()
 
 	logrus.Info("Starting server on: ", cfg.EnvServAdr)
 
@@ -105,6 +121,17 @@ func main() {
 			logrus.Error(err)
 		}
 	}
+
+	// создаём файл журнала профилирования памяти
+	// fmem, err := os.Create(`result.pprof`)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer fmem.Close()
+	// runtime.GC() // получаем статистику по использованию памяти
+	// if err := rpprf.WriteHeapProfile(fmem); err != nil {
+	// 	panic(err)
+	// }
 
 	logrus.Info("Server exited")
 }

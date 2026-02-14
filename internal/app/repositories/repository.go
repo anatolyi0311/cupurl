@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/anatolyi0311/cupurl/internal/app/models"
 	"github.com/sirupsen/logrus"
@@ -80,7 +79,7 @@ func (m *URLInMemoryRepo) readFileToMemoryURL() error {
 }
 
 func (m *URLInMemoryRepo) SaveBatchToFile() error {
-	startTime := time.Now() // Засекаем время начала операции
+	// startTime := time.Now() // Засекаем время начала операции
 	file, err := os.OpenFile(m.storageFilePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		logrus.Error(err)
@@ -100,8 +99,8 @@ func (m *URLInMemoryRepo) SaveBatchToFile() error {
 		return err
 	}
 
-	elapsedTime := time.Since(startTime) // Вычисляем затраченное время
-	logrus.Infof("%d URL saved in %v", m.batchCounter, elapsedTime)
+	// elapsedTime := time.Since(startTime) // Вычисляем затраченное время
+	// logrus.Infof("%d URL saved in %v", m.batchCounter, elapsedTime)
 	m.batchBuffer = make([]URLInFileRepo, 0, m.batchSize)
 	return nil
 }

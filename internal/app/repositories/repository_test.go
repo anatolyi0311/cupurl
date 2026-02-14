@@ -302,3 +302,33 @@ func createTempFilePath(t *testing.T) string {
 	tempFile.Close()
 	return tempPath
 }
+
+func BenchmarkURLInMemoryRepo_GetOriginalURLFromDB(b *testing.B) {
+	memRepo := URLInMemoryRepo{
+		shortToOrigURL: map[string]string{"short1": "original1"},
+	}
+	ctx := context.Background()
+	shortURL := "short1"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := memRepo.GetOriginalURLFromDB(ctx, shortURL)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkURLInMemoryRepo_SaveBatchToFile(b *testing.B) {
+	memRepo := URLInMemoryRepo{
+		storageFilePath: createTempFilePath(&testing.T{}),
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := memRepo.SaveBatchToFile()
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
