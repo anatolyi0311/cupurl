@@ -26,7 +26,7 @@ import (
 //
 //go:generate mockgen -source=handlers.go -destination=mocks/handlers_mock.go -package=mocks
 type Service interface {
-		// GetShortURL takes original URL and returns its shortened version.
+	// GetShortURL takes original URL and returns its shortened version.
 	// If the URL has already been shortened, it returns the existing shortened URL.
 	// If the URL is new, it generates a new shortened URL.
 	// Returns an error if the URL cannot be shortened or if any internal error occurs.
