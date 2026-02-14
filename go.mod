@@ -1,6 +1,6 @@
 module github.com/anatolyi0311/cupurl
 
-go 1.25.0
+go 1.24.12
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
@@ -13,7 +13,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/tools v0.40.1-0.20260108161641-ca281cf95054
-	honnef.co/go/tools v0.7.0
+	honnef.co/go/tools v0.4.6
 )
 
 require (
@@ -55,6 +55,7 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
 	google.golang.org/protobuf v1.36.9 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
