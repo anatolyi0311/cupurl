@@ -42,3 +42,10 @@ git fetch template && git checkout template/v2 .github
 - **Clean Architecture**
 - **Hexagonal Architecture**
 - **Layered Architecture**
+
+## Testing
+
+For local test in console:
+- **curl -X POST -H "Content-Type: text/plain" -d 'https://practicum.yandex.ru/gfxg' http://localhost:8080/**
+- **curl -X POST -H "Content-Type: application/json" -d '{"url":"https://practicum.yandex.ru/gfxg"}' http://localhost:8080/api/shorten**
+- **curl -X GET -H "Content-Type: text/plain" -d '/EwHXdJfB' http://localhost:8080/{id}**
