@@ -2,8 +2,9 @@ package main
 
 import (
 	"go/ast"
-	"golang.org/x/tools/go/analysis"
 	"strings"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 // OsExitAnalyzer checks for direct os.Exit in main function.
