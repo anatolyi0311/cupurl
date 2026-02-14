@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/anatolyi0311/cupurl/internal/app/config"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,7 +27,7 @@ const (
 type Event struct {
 	TS     time.Time `json:"ts"`
 	Action string    `json:"action"`
-	UserID uuid.UUID `json:"user_id"`
+	UserID int       `json:"user_id"`
 	URL    string    `json:"url"`
 }
 
@@ -138,7 +137,7 @@ func (a *Audit) sendToHost(event Event) error {
 }
 
 // CreateEvent создает новое событие аудита.
-func CreateEvent(userID uuid.UUID, action, URL string) Event {
+func CreateEvent(userID int, action, URL string) Event {
 	return Event{
 		TS:     time.Now(),
 		Action: action,

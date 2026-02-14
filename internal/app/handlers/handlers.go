@@ -15,7 +15,6 @@ import (
 	"github.com/anatolyi0311/cupurl/internal/app/config"
 	"github.com/anatolyi0311/cupurl/internal/app/models"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/sirupsen/logrus"
@@ -107,7 +106,7 @@ func (h Handlers) GetShortURL(c *gin.Context) {
 			logrus.Error(err)
 			return
 		}
-		h.sendEvent(audit.CreateEvent(userID, audit.Shorten, string(link)))
+		h.sendEvent(audit.CreateEvent(int(userID), audit.Shorten, string(link)))
 	}
 
 	c.String(http.StatusCreated, shortURL)
@@ -138,7 +137,7 @@ func (h Handlers) GetOriginalURL(c *gin.Context) {
 			logrus.Error(err)
 			return
 		}
-		h.sendEvent(audit.CreateEvent(userID, audit.Follow, originURL))
+		h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, originURL))
 	}
 
 	c.Header("Location", originURL)
@@ -173,7 +172,7 @@ func (h Handlers) GetJSONShortURL(c *gin.Context) {
 			logrus.Error(err)
 			return
 		}
-		h.sendEvent(audit.CreateEvent(userID, audit.Follow, result))
+		h.sendEvent(audit.CreateEvent(int(userID), audit.Follow, result))
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"result": result})
@@ -324,7 +323,7 @@ func (h Handlers) MiddlewareAuthPublic() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
 		var err error
-		var userID uuid.UUID
+		var userID uint32
 
 		tokenString, err = c.Cookie("user_token")
 		// если токен не найден в куке, то генерируем новый и добавляем его в куки

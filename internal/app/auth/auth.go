@@ -1,27 +1,21 @@
-// Package auth provides functions for handling authentication, JWT token creation,
-// and validation.
 package auth
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"math/rand"
+	"time"
 )
 
-// Claims is a structure that includes standard JWT claims and UserID.
+// Claims — claims structure that includes standard claims and UserID
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID uuid.UUID
+	UserID uint32
 }
 
-// const for generate token
 const (
-	// TokenExp defines the expiration duration for JWT tokens.
-	TokenExp = time.Hour * 3
-	// SecretKey is the secret key used for signing JWT tokens.
+	TokenExp  = time.Hour * 3
 	SecretKey = "SnJSkf123jlLKNfsNln"
 )
 
@@ -30,7 +24,7 @@ func BuildJWTString(secretKey string) (string, error) {
 	if secretKey == "" {
 		secretKey = SecretKey
 	}
-	userID := GenerateUniqueID()
+	userID := generateUniqueID()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			// когда создан токен
@@ -47,13 +41,16 @@ func BuildJWTString(secretKey string) (string, error) {
 	return tokenString, nil
 }
 
-// GenerateUniqueID генерирует UUID при помощи библиотеки golang.org/x/crypto/bcrypt
-func GenerateUniqueID() uuid.UUID {
-	return uuid.New()
+// generate Unique ID generate a unique UserID from 0 to 999999
+func generateUniqueID() uint32 {
+	rand.NewSource(time.Now().UnixNano())
+	id := uint32(rand.Intn(1000000))
+	logrus.Infof("Generated user id is: %v", id)
+	return id
 }
 
 // GetUserID we check the validity of the token and if it is valid, then we get and return the UserID from it
-func GetUserID(tokenString, secretKey string) (uuid.UUID, error) {
+func GetUserID(tokenString, secretKey string) (uint32, error) {
 	if secretKey == "" {
 		secretKey = SecretKey
 	}
@@ -66,12 +63,12 @@ func GetUserID(tokenString, secretKey string) (uuid.UUID, error) {
 	})
 	if err != nil {
 		logrus.Error(err)
-		return uuid.Nil, err
+		return 0, err
 	}
 	if !token.Valid {
 		err = fmt.Errorf("token is not valid")
 		logrus.Error(err)
-		return uuid.Nil, err
+		return 0, err
 	}
 	logrus.Infof("Token is valid, userID: %v", claims.UserID)
 	return claims.UserID, nil
