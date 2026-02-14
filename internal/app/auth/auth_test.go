@@ -11,11 +11,6 @@ type args struct {
 	tokenString string
 }
 
-// Это ваша функция проверки токена, которую вы можете использовать вместо стандартной в тестах.
-func mockTokenValidation(tokenString string) (bool, error) {
-	// Логика проверки токена, возвращающая всегда true в тестах.
-	return true, nil
-}
 func TestBuildJWTString(t *testing.T) {
 	secretKey := "secret_key"
 	tests := []struct {

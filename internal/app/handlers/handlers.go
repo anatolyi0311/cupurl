@@ -59,8 +59,6 @@ type URLProcessing struct {
 	URL string `json:"url"`
 }
 
-var typeArray = [2]string{"application/json", "text/html"}
-
 func NewHandlers(service Service, DB *pgxpool.Pool, cfg *config.ENVConfig) *Handlers {
 	audit, err := audit.New(cfg)
 	if err != nil {
