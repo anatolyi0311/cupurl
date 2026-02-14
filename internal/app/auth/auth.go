@@ -1,3 +1,5 @@
+// Package auth provides functions for handling authentication, JWT token creation,
+// and validation.
 package auth
 
 import (
@@ -15,6 +17,7 @@ type Claims struct {
 	UserID uint32
 }
 
+// const for generate token
 const (
 	TokenExp  = time.Hour * 3
 	SecretKey = "SnJSkf123jlLKNfsNln"

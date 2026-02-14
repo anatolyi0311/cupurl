@@ -1,3 +1,5 @@
+// Package repositories provides implementations for interacting with the data storage.
+// It includes functionality to store, retrieve, and manage shortened URLs in a PostgreSQL database.
 package repositories
 
 import (
@@ -11,11 +13,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// URLInDBRepo represents the repository for storing and retrieving URLs in the PostgreSQL database.
 type URLInDBRepo struct {
 	UserID uint8         `json:"id"`
 	DB     *pgxpool.Pool //opened in main func DB pool connections
 }
 
+// NewURLInDBRepo creates a new instance of URLInDBRepo with the provided database connection pool.
+// It also initializes the database table for storing shortened URLs.
 func NewURLInDBRepo(DB *pgxpool.Pool) *URLInDBRepo {
 	storage := &URLInDBRepo{
 		UserID: 0,
@@ -25,6 +30,7 @@ func NewURLInDBRepo(DB *pgxpool.Pool) *URLInDBRepo {
 	return storage
 }
 
+// CreateBDTable creates the "shorted_URL" table in the database if it doesn't already exist.
 func (d *URLInDBRepo) CreateBDTable() error {
 	ctx := context.Background()
 	sqlQuery := `
@@ -43,6 +49,8 @@ func (d *URLInDBRepo) CreateBDTable() error {
 	return nil
 }
 
+// StoreURLInDB saves a mapping between an original URL and its shortened version in the database.
+// It returns an error if the saving process fails.
 func (d *URLInDBRepo) StoreURLInDB(ctx context.Context, originalURL, shortURL string) error {
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
 	if !ok {
@@ -57,6 +65,9 @@ func (d *URLInDBRepo) StoreURLInDB(ctx context.Context, originalURL, shortURL st
 	return nil
 }
 
+// StoreBatchURLInDB saves multiple URL mappings in the database in a batch operation.
+// The input is a map where keys are shortened URLs and values are the corresponding original URLs.
+// It returns an error if the batch saving process fails.
 func (d *URLInDBRepo) StoreBatchURLInDB(ctx context.Context, batchURLtoStores map[string]string) error {
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
 	if !ok {
@@ -82,6 +93,7 @@ func (d *URLInDBRepo) StoreBatchURLInDB(ctx context.Context, batchURLtoStores ma
 	return tx.Commit(ctx)
 }
 
+// MarkURLsAsDeleted marks user URLs as deleted in DB
 func (d *URLInDBRepo) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
 	if len(URLSToDel) == 0 {
 		return nil
@@ -114,6 +126,8 @@ func (d *URLInDBRepo) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string)
 	return tx.Commit(ctx)
 }
 
+// GetOriginalURLFromDB retrieves the original URL corresponding to a given shortened URL from the database.
+// It returns the original URL and any error encountered during the retrieval.
 func (d *URLInDBRepo) GetOriginalURLFromDB(ctx context.Context, shortURL string) (string, error) {
 	const selectQuery = `SELECT originalurl, deletedflag FROM cupurl WHERE shorturl = $1`
 	var originalURL string
@@ -133,6 +147,8 @@ func (d *URLInDBRepo) GetOriginalURLFromDB(ctx context.Context, shortURL string)
 	return originalURL, nil
 }
 
+// GetShortURLFromDB retrieves the shortened version of a given original URL from the database.
+// It returns the shortened URL and any error encountered during the retrieval.
 func (d *URLInDBRepo) GetShortURLFromDB(ctx context.Context, originalURL string) (string, error) {
 	const selectQuery = `SELECT shorturl FROM cupurl WHERE originalurl = $1`
 	var shortURL string
@@ -148,6 +164,7 @@ func (d *URLInDBRepo) GetShortURLFromDB(ctx context.Context, originalURL string)
 	return shortURL, nil
 }
 
+// GetUserURLSFromDB takes a slice of models.URL objects for a specific user from DB
 func (d *URLInDBRepo) GetUserURLSFromDB(ctx context.Context) ([]models.URL, error) {
 	const selectQuery = `SELECT shorturl,originalurl FROM cupurl WHERE userid = $1`
 	userID, ok := ctx.Value(models.UserIDKey).(uint32)
@@ -179,6 +196,10 @@ func (d *URLInDBRepo) GetUserURLSFromDB(ctx context.Context) ([]models.URL, erro
 	return userURLS, nil
 }
 
+// GetShortBatchURLFromDB retrieves multiple shortened URLs corresponding to a batch of original URLs from the database.
+// The input is a slice of URLRequest objects containing original URLs.
+//
+//	It returns found in database a map of original URLs to their shortened counterparts and any error encountered during the retrieval.
 func (d *URLInDBRepo) GetShortBatchURLFromDB(ctx context.Context, batchURLRequests []models.URLRequest) (map[string]string, error) {
 	var shortsURL = make(map[string]string, len(batchURLRequests))
 	var shortURL string
