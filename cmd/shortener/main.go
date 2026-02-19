@@ -35,18 +35,7 @@ func main() {
 
 	cfg = config.NewConfig()
 	if cfg.EnvDataBase != "" {
-		confPool, err := pgxpool.ParseConfig(cfg.EnvDataBase)
-		if err != nil {
-			logrus.Errorf("error parsing config: %v", err)
-		}
-		confPool.MaxConns = 50
-		confPool.MinConns = 10
-		dbPool, err = pgxpool.NewWithConfig(context.Background(), confPool)
-		if err != nil {
-			logrus.Error("Don't connect to DB: ", err)
-			os.Exit(1)
-		}
-
+		dbPool = getDbPool(cfg)
 		defer dbPool.Close()
 		myRepository = repositories.NewURLInDBRepo(dbPool)
 	} else {
@@ -55,12 +44,73 @@ func main() {
 	}
 
 	logcfg.RunLoggerConfig(cfg.EnvLogLevel)
-	logrus.Infof("Server started:\nServer addres %s\nBase URL %s\nFile path %s\nDBConfig %s\n", cfg.EnvServAdr, cfg.EnvBaseURL, cfg.EnvStoragePath, cfg.EnvDataBase)
+	logrus.Infof("Server started:\nServer addres %s\nBase URL %s\nFile path %s\nDBConfig %s\n",
+		cfg.EnvServAdr, cfg.EnvBaseURL, cfg.EnvStoragePath, cfg.EnvDataBase)
+
 	myShorURLService := services.NewShortURLServices(myRepository, services.ShortURLServices{}, cfg.EnvBaseURL)
 	myHandler := handlers.NewHandlers(myShorURLService, dbPool, cfg)
 
 	router := gin.Default()
 
+	server := &http.Server{Addr: cfg.EnvServAdr, Handler: setRouters(router, myHandler)}
+
+	// Запуск отдельного audit
+	ctxAudit, cancelAudit := context.WithCancel(context.Background())
+	defer cancelAudit()
+	go myHandler.RunAudit(ctxAudit)
+
+	go func() {
+		logrus.Info("Starting server on: ", cfg.EnvServAdr)
+		if err = server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			logrus.Error(err)
+		}
+	}()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	logrus.Info("Shutting down server...")
+	if err = server.Shutdown(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "HTTP server Shutdown: %v\n", err)
+	}
+
+	//If the server shutting down, save batch to file
+	if repositoryReciver {
+		if _, ok := myRepository.(services.URLInMemoryRepository); !ok {
+			logrus.Errorf("invalid type assertion %v", myRepository)
+		}
+		err = myRepository.(services.URLInMemoryRepository).SaveBatchToFile()
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+
+	// Запуск отдельного pprof-сервера
+	// создаём файл журнала профилирования памяти
+	makePprof()
+
+	logrus.Info("Server exited")
+}
+
+func getDbPool(cfg *config.ENVConfig) *pgxpool.Pool {
+	confPool, err := pgxpool.ParseConfig(cfg.EnvDataBase)
+	if err != nil {
+		logrus.Errorf("error parsing config: %v", err)
+	}
+	confPool.MaxConns = 50
+	confPool.MinConns = 10
+	dbPool, err := pgxpool.NewWithConfig(context.Background(), confPool)
+	if err != nil {
+		logrus.Error("Don't connect to DB: ", err)
+		os.Exit(1)
+	}
+	return dbPool
+}
+
+func setRouters(router *gin.Engine, myHandler *handlers.Handlers) *gin.Engine {
 	// Pprof роутер
 	pprofRouter := router.Group("/debug/pprof")
 	// pprofRouter.Handle("GET", "/", myHandler.PprofIndex)
@@ -79,6 +129,7 @@ func main() {
 	publicRoutes.GET("/:id", myHandler.GetOriginalURL)
 	publicRoutes.POST("/api/shorten", myHandler.GetJSONShortURL)
 	publicRoutes.POST("/api/shorten/batch", myHandler.GetBatchShortURL)
+
 	//Private middleware routers group
 	privateRoutes := router.Group("/")
 	privateRoutes.Use(myHandler.MiddlewareAuthPrivate())
@@ -88,42 +139,13 @@ func main() {
 	privateRoutes.GET("/api/user/urls", myHandler.GetUserURLS)
 	privateRoutes.DELETE("/api/user/urls", myHandler.DelUserURLS)
 
-	server := &http.Server{Addr: cfg.EnvServAdr, Handler: router}
+	return router
+}
 
-	// Запуск отдельного pprof-сервера
+func makePprof() error {
 	// go func() {
 	// 	_ = http.ListenAndServe("localhost:6060", nil)
 	// }()
-
-	logrus.Info("Starting server on: ", cfg.EnvServAdr)
-
-	go func() {
-		if err = server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			logrus.Error(err)
-		}
-	}()
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-
-	<-signalChan
-
-	logrus.Info("Shutting down server...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err = server.Shutdown(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "HTTP server Shutdown: %v\n", err)
-	}
-	//If the server shutting down, save batch to file
-	if repositoryReciver {
-		err = myRepository.(services.URLInMemoryRepository).SaveBatchToFile()
-		if err != nil {
-			logrus.Error(err)
-		}
-	}
-
-	// создаём файл журнала профилирования памяти
 	// fmem, err := os.Create(`result.pprof`)
 	// if err != nil {
 	// 	panic(err)
@@ -133,6 +155,9 @@ func main() {
 	// if err := rpprf.WriteHeapProfile(fmem); err != nil {
 	// 	panic(err)
 	// }
-
-	logrus.Info("Server exited")
+	// err = os.Remove(`result.pprof`)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	return nil
 }
