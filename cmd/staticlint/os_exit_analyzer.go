@@ -17,6 +17,9 @@ var OsExitAnalyzer = &analysis.Analyzer{
 func runOsExitMain(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
 		for _, decl := range file.Decls {
+			if decl == nil {
+				continue
+			}
 			fd, okFD := decl.(*ast.FuncDecl)
 			if !okFD || fd.Name.Name != "main" {
 				continue

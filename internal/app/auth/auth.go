@@ -60,6 +60,8 @@ func GetUserID(tokenString, secretKey string) (uint32, error) {
 	}
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+		// if t == nil {
+		// }
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signed method: %v", t.Header["alg"])
 		}
@@ -85,6 +87,8 @@ func IsValidToken(tokenString, secretKey string) bool {
 	}
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+		// if t == nil {
+		// }
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signed method: %v", t.Header["alg"])
 		}

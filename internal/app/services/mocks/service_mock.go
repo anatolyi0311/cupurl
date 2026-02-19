@@ -39,7 +39,10 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 func (m *MockRepository) GetOriginalURLFromDB(ctx context.Context, shortURL string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOriginalURLFromDB", ctx, shortURL)
-	ret0, _ := ret[0].(string)
+	ret0, ok := ret[0].(string)
+	if !ok {
+		return "", models.ErrURLFound
+	}
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -54,7 +57,10 @@ func (mr *MockRepositoryMockRecorder) GetOriginalURLFromDB(ctx, shortURL interfa
 func (m *MockRepository) GetShortBatchURLFromDB(ctx context.Context, batchURLRequests []models.URLRequest) (map[string]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetShortBatchURLFromDB", ctx, batchURLRequests)
-	ret0, _ := ret[0].(map[string]string)
+	ret0, ok := ret[0].(map[string]string)
+	if !ok {
+		return nil, models.ErrURLFound
+	}
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -69,7 +75,10 @@ func (mr *MockRepositoryMockRecorder) GetShortBatchURLFromDB(ctx, batchURLReques
 func (m *MockRepository) GetShortURLFromDB(ctx context.Context, originalURL string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetShortURLFromDB", ctx, originalURL)
-	ret0, _ := ret[0].(string)
+	ret0, ok := ret[0].(string)
+	if !ok {
+		return "", models.ErrURLFound
+	}
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -84,7 +93,10 @@ func (mr *MockRepositoryMockRecorder) GetShortURLFromDB(ctx, originalURL interfa
 func (m *MockRepository) GetUserURLSFromDB(ctx context.Context) ([]models.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserURLSFromDB", ctx)
-	ret0, _ := ret[0].([]models.URL)
+	ret0, ok := ret[0].([]models.URL)
+	if !ok {
+		return nil, models.ErrURLFound
+	}
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -164,7 +176,10 @@ func (m *MockEncoder) EXPECT() *MockEncoderMockRecorder {
 func (m *MockEncoder) CryptoBase62Encode() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CryptoBase62Encode")
-	ret0, _ := ret[0].(string)
+	ret0, ok := ret[0].(string)
+	if !ok {
+		return ""
+	}
 	return ret0
 }
 

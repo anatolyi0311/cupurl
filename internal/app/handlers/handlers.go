@@ -72,6 +72,13 @@ func NewHandlers(service Service, DB *pgxpool.Pool, cfg *config.ENVConfig) *Hand
 	}
 }
 
+func (h *Handlers) RunAudit(ctx context.Context) {
+	if h.audit == nil {
+		return
+	}
+	h.audit.Run(ctx)
+}
+
 func (h *Handlers) sendEvent(event audit.Event) {
 	if h.audit == nil {
 		return

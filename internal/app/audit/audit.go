@@ -48,7 +48,10 @@ type Audit struct {
 
 // New создает новый экземпляр Audit.
 func New(cfg *config.ENVConfig) (Observer, error) {
-	if cfg.AuditFile == "" || cfg.AuditURL == "" {
+	if cfg == nil {
+		return nil, fmt.Errorf("NewAudit(): empty config")
+	}
+	if cfg.AuditFile == "" && cfg.AuditURL == "" {
 		return nil, fmt.Errorf("NewAudit(): empty config")
 	}
 
@@ -62,11 +65,25 @@ func New(cfg *config.ENVConfig) (Observer, error) {
 
 // Update отправляет событие в канал для обработки.
 func (a *Audit) Update(event Event) {
+	if a == nil {
+		return
+	}
+	if a.eventChan == nil {
+		return
+	}
 	a.eventChan <- event
 }
 
 // Run запускает обработчик событий аудита.
 func (a *Audit) Run(ctx context.Context) {
+	if a == nil {
+		logrus.Error("audit not init")
+		return
+	}
+	if a.eventChan == nil {
+		logrus.Error("audit not run")
+		return
+	}
 	for {
 		select {
 		case <-ctx.Done():

@@ -13,10 +13,10 @@ import (
 )
 
 func main() {
-	easy()
+	easyPost()
 }
 
-func easy() {
+func easyPost() {
 	endpoint := "http://localhost:8080/"
 	// контейнер данных для запроса
 	data := url.Values{}
@@ -40,7 +40,7 @@ func easy() {
 	// пишем запрос
 	// запрос методом POST должен, помимо заголовков, содержать тело
 	// тело должно быть источником потокового чтения io.Reader
-	request, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(data.Encode()))
+	request, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(data.Get("url"))) // data.Encode()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -61,5 +61,21 @@ func easy() {
 		log.Fatalln(err)
 	}
 	// и печатаем его
-	fmt.Println(string(body))
+	fmt.Println("Response ", string(body))
+
+	// GET
+	parsedLink, err := url.Parse(string(body))
+	fmt.Println("parsedLink.Path ", parsedLink.Path)
+	request2, err := http.NewRequest(http.MethodGet, string(body), nil) // data.Encode()
+	if err != nil {
+		log.Fatalln("Fatal.req:", err)
+	}
+	response2, err := client.Do(request2)
+	if err != nil {
+		log.Fatalln("Fatal.res:", err)
+	}
+	fmt.Println("Статус-код ", response2.Status)
+	defer response2.Body.Close()
+	fmt.Println("Response ", response2.Header)
+
 }
