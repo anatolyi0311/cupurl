@@ -65,6 +65,9 @@ func easyPost() {
 
 	// GET
 	parsedLink, err := url.Parse(string(body))
+	if err != nil {
+		log.Fatalln("Fatal.Parse:", err)
+	}
 	fmt.Println("parsedLink.Path ", parsedLink.Path)
 	request2, err := http.NewRequest(http.MethodGet, string(body), nil) // data.Encode()
 	if err != nil {
