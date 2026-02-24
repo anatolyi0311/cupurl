@@ -1,21 +1,48 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"go/ast"
+	"go/format"
 	"go/parser"
-	"go/printer"
 	"go/token"
 )
+
+const typStr = "string"
 
 type StructInfo struct {
 	Name   string
 	Target *ast.GenDecl
+}
+
+type DataCode struct {
+	File    string
+	Package string
+	Structs []templateData
+}
+
+type FieldsStruct struct {
+	Symb string
+	Name  string
+	IsInt bool
+	IsStr bool
+	IsArr bool
+	IsMap bool
+}
+
+type templateData struct {
+	Name   string
+	Symb   string
+	Fields []FieldsStruct
+	Child  bool
+	path   string
 }
 
 func main() {
@@ -27,123 +54,151 @@ func main() {
 	rootDir := filepath.Join(splitDir[:len(splitDir)-2]...)
 	dirKey := string(os.PathSeparator) + splitDir[len(splitDir)-3]
 	rootDir = string(os.PathSeparator) + rootDir
-	// fmt.Println("rootdir:", rootDir)
 
 	givenFiles, err := readFileDir(rootDir, dirKey, "", make(map[string][]string))
 	if err != nil {
 		log.Fatal(err)
 	}
 	for filePath, files := range givenFiles {
-		// fmt.Println("files:", filePath, "\t", files)
 		// создаём token.FileSet
 		for _, file := range files {
-			fset := token.NewFileSet()
-			// текст исходного кода
-			// src := readFile(filePath)
-			filePath := rootDir[:len(rootDir)-1-len("cupurl")] + filePath + "/" + file
-			// получаем дерево разбора
-			f, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
-			if err != nil {
-				fmt.Println(err)
-			}
-			for _, f := range f.Decls {
-				genD, ok := f.(*ast.GenDecl)
-				if !ok {
-					fmt.Printf("SKIP %T is not *ast.GenDecl\n", f)
-					continue
-				}
-				targetStruct := &StructInfo{}
-				var thisIsStruct bool
-				for _, spec := range genD.Specs {
-					currType, ok := spec.(*ast.TypeSpec)
-					if !ok {
-						fmt.Printf("SKIP %T is not ast.TypeSpec\n", spec)
-						continue
-					}
-
-					currStruct, ok := currType.Type.(*ast.StructType)
-					if !ok {
-						fmt.Printf("SKIP %T is not ast.StructType\n", currStruct)
-						continue
-					}
-					targetStruct.Name = currType.Name.Name
-					thisIsStruct = true
-				}
-				//Getting comments
-				var needCodegen bool
-				var dbeParams string
-				if thisIsStruct {
-					for _, comment := range genD.Doc.List {
-						needCodegen = needCodegen || strings.HasPrefix(comment.Text, "// dbe")
-						if len(comment.Text) < 7 {
-							dbeParams = ""
-						} else {
-							dbeParams = strings.Replace(comment.Text, "// dbe:", "", 1)
-						}
-					}
-				}
-				fmt.Println("dbeParams", dbeParams)
-			}
-
-			// for _, gr := range f.Comments {
-			// 	for _, c := range gr.List {
-			// 		if strings.HasPrefix(c.Text, "// generate:reset") {
-			// 			fmt.Println(fset.Position(c.Slash).String(), c.Text)
-			// 			inspect(f, fset)
-			// 		}
-			// 	}
-			// }
+			pkg := strings.Split(filePath, "/")[len(strings.Split(filePath, "/"))-1] // file[:len(file)-len(".go")]
+			path := rootDir[:len(rootDir)-1-len("cupurl")] + filePath
+			fpath := path + "/" + file
+			getStructAndComments(fpath, pkg, path)
 		}
 	}
 }
 
-func inspect(node ast.Node, token *token.FileSet) {
-	fmt.Println()
-	// запускаем инспектор, который рекурсивно обходит ветви AST
-	// передаём инспектирующую функцию анонимно
-	ast.Inspect(node, func(n ast.Node) bool {
-		// проверяем, какой конкретный тип лежит в узле
-		switch x := n.(type) {
-		// case *ast.CallExpr:
-		// 	// ast.CallExpr представляет вызов функции или метода
-		// 	fmt.Printf("CallExpr %v: ", token.Position(x.Fun.Pos()))
-		// 	printer.Fprint(os.Stdout, token, x)
-		// 	fmt.Println()
-		// case *ast.FuncDecl:
-		// 	// ast.FuncDecl представляет декларацию функции
-		// 	fmt.Printf("FuncDecl %s %v: ", x.Name.Name, token.Position(x.Pos()))
-		// 	printer.Fprint(os.Stdout, token, x)
-		// 	fmt.Println()
-		// case *ast.TypeSpec:
-		// 	// ast.TypeSpec представляет декларацию ...
-		// 	fmt.Printf("TypeSpec\nName: %v pos:%v ...: %v %v\n", x.Name.String(), token.Position(x.Pos()), x.Name.Obj.Kind, x.Name.Obj.Name)
-		// 	// fmt.Printf("%v ", x.Name.Obj.Kind)
-		// 	printer.Fprint(os.Stdout, token, x)
-		// 	fmt.Println()
-		case *ast.StructType:
-			// ast.StructType представляет декларацию struct
-			fmt.Printf("StructType\npos:%v fields: %d\n", token.Position(x.Pos()), len(x.Fields.List))
-			printer.Fprint(os.Stdout, token, x)
-			fmt.Println()
-			// case *ast.Comment:
-			// 	fmt.Printf("CommentGroup\n%v\n", x.Slash)
-			// 	printer.Fprint(os.Stdout, token, x)
-			// 	fmt.Println()
-		}
-		return true
-	})
-}
+func getStructAndComments(fpath, pkg, path string) {
+	// var sb strings.Builder
+	// fmt.Fprintf(&sb, "%s", methodResetTmpl)
+	// текст исходного кода
+	// src := readFile(filePath)
+	// fpath := rootDir[:len(rootDir)-1-len("cupurl")] + filePath + "/" + file
 
-func readFile(filePath string) string {
-	// Read the entire file into a byte slice
-	content, err := os.ReadFile(filePath)
+	var methodResetTmpl = `//CODE GENERATED AUTOMATICALLY
+package {{.Package}}
+
+{{range .Structs}}
+func ({{.Symb}} *{{.Name}}) Reset() {
+    if {{.Symb}} == nil {
+        return
+    }{{if .Child}}{{range .Fields}}
+    if resetter, ok := {{.Name}}.(interface{ Reset() }); ok && {{.Name}} != nil {
+        resetter.Reset()
+    }{{end}}{{end}}
+}{{end}}
+`
+	var data DataCode
+	data.Structs = make([]templateData, 0)
+
+	fset := token.NewFileSet()
+
+	// получаем дерево разбора
+	f, err := parser.ParseFile(fset, fpath, nil, parser.ParseComments)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
-	// Print the content (convert byte slice to string)
-	// fmt.Println(string(content))
-	return string(content)
+	for _, f := range f.Decls {
+		genD, ok := f.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		structs := make(map[string]*ast.StructType)
+
+		for _, spec := range genD.Specs {
+			currType, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
+			}
+			currStruct, ok := currType.Type.(*ast.StructType)
+			if !ok {
+				continue
+			}
+			structs[currType.Name.Name] = currStruct
+		}
+
+		if len(structs) > 0 {
+			var needCodegen bool
+			//Getting comments
+			for _, comment := range genD.Doc.List {
+				prefix := "// generate:reset"
+				needCodegen = strings.HasPrefix(comment.Text, prefix)
+				// ...
+				if needCodegen {
+					var fieldsStruct []FieldsStruct
+					data.File = pkg + ".go"
+					data.Package = pkg
+					// ...
+					for k, v := range structs {
+						// fmt.Println(comment.Text)
+						// fmt.Println("type:", k)
+						symb := strings.ToLower(k[0:1])
+						for _, field := range v.Fields.List {
+							if len(field.Names) < 1 {
+								continue
+							}
+							fieldName := symb + "." + field.Names[0].String()
+							fieldStruct := FieldsStruct{Name: fieldName}
+							// if _, ok := field.Type.(*ast.StructType); ok {
+							// }
+							if _, ok := field.Type.(*ast.ChanType); ok {
+								continue
+							}
+							if _, ok := field.Type.(*ast.Ident); ok {
+								fmt.Println("    ..field.Ident", fieldName, field.Type)
+								continue
+							}
+							if _, ok := field.Type.(*ast.ArrayType); ok {
+								fmt.Println("    ..field.Array", fieldName, field.Type)
+								fieldStruct.IsArr = true
+							}
+							if _, ok := field.Type.(*ast.InterfaceType); ok {
+								fmt.Println("  --field", fieldName, field.Type)
+							}
+							fieldsStruct = append(fieldsStruct, fieldStruct)
+							fmt.Println("  field", fieldName, field.Type)
+						}
+						// ...
+						tmpl := templateData{
+							Name:   k,
+							Symb:   symb,
+							Fields: fieldsStruct,
+							Child:  len(fieldsStruct) > 0,
+						}
+						data.Structs = append(data.Structs, tmpl)
+					}
+				}
+			}
+		}
+	}
+	// ...
+	if strings.Split(fpath, "/")[len(strings.Split(fpath, "/"))-1] == data.File {
+		var buf bytes.Buffer
+		t := template.Must(template.New("struct-method").Parse(methodResetTmpl))
+		if err := t.Execute(&buf, data); err != nil {
+			fmt.Println(err)
+		}
+		bufFmt, err := format.Source(buf.Bytes())
+		if err != nil {
+			panic(err)
+		}
+		// basename := strings.TrimSuffix(file, filepath.Ext(file))
+		err = os.WriteFile(path+"/"+"reset.gen.go", bufFmt, 0644)
+	}
 }
+
+// func readFile(filePath string) string {
+// 	// Read the entire file into a byte slice
+// 	content, err := os.ReadFile(filePath)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	// Print the content (convert byte slice to string)
+// 	// fmt.Println(string(content))
+// 	return string(content)
+// }
 
 func readFileDir(rootDir, keyDir, sep string, givenFiles map[string][]string) (map[string][]string, error) {
 	/*
@@ -173,6 +228,7 @@ func readFileDir(rootDir, keyDir, sep string, givenFiles map[string][]string) (m
 			file.Name() == ".git" ||
 			file.Name() == ".github" ||
 			file.Name() == ".idea" ||
+			file.Name() == "reset" ||
 			strings.HasPrefix(file.Name(), ".git") ||
 			strings.Contains(file.Name(), "_mock") ||
 			strings.Contains(file.Name(), "_test") ||
