@@ -24,6 +24,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 func main() {
 	var (
 		dbPool            *pgxpool.Pool
@@ -65,6 +71,11 @@ func main() {
 			logrus.Error(err)
 		}
 	}()
+
+	logrus.Printf("Build version: %s\n", buildVersion)
+	logrus.Printf("Build date: %s\n", buildDate)
+	logrus.Printf("Build commit: %s\n", buildCommit)
+
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	<-signalChan
