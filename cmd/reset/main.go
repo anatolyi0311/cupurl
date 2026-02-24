@@ -29,7 +29,7 @@ type DataCode struct {
 }
 
 type FieldsStruct struct {
-	Symb string
+	Symb  string
 	Name  string
 	IsInt bool
 	IsStr bool
@@ -186,6 +186,9 @@ func ({{.Symb}} *{{.Name}}) Reset() {
 		}
 		// basename := strings.TrimSuffix(file, filepath.Ext(file))
 		err = os.WriteFile(path+"/"+"reset.gen.go", bufFmt, 0644)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 

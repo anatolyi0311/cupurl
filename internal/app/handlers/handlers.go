@@ -47,6 +47,7 @@ type Service interface {
 }
 
 // Handlers is a struct that contains HTTP request handlers and a database connection pool.
+// generate:reset
 type Handlers struct {
 	service   Service
 	DB        *pgxpool.Pool
@@ -55,6 +56,7 @@ type Handlers struct {
 }
 
 // URLProcessing is a struct used for JSON processing in some of the handlers.
+// generate:reset
 type URLProcessing struct {
 	URL string `json:"url"`
 }

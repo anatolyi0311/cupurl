@@ -24,6 +24,7 @@ const (
 )
 
 // Event представляет событие аудита.
+// generate:reset
 type Event struct {
 	TS     time.Time `json:"ts"`
 	Action string    `json:"action"`
@@ -38,6 +39,7 @@ type Observer interface {
 }
 
 // Audit реализует систему аудита с поддержкой файла и HTTP.
+// generate:reset
 type Audit struct {
 	cfg       config.ENVConfig
 	eventChan chan Event

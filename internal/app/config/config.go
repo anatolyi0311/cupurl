@@ -10,6 +10,7 @@ import (
 
 // ENVConfig holds configuration settings extracted from environment variables.
 // This struct is used to configure various aspects of the application.
+// generate:reset
 type ENVConfig struct {
 	EnvServAdr     string `env:"SERVER_ADDRESS"`
 	EnvBaseURL     string `env:"BASE_URL"`
