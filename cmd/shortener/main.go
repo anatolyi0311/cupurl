@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -18,10 +17,9 @@ import (
 	"github.com/anatolyi0311/cupurl/internal/app/handlers"
 	"github.com/anatolyi0311/cupurl/internal/app/https"
 	"github.com/anatolyi0311/cupurl/internal/app/logcfg"
+	"github.com/anatolyi0311/cupurl/internal/app/models"
 	"github.com/anatolyi0311/cupurl/internal/app/repositories"
-	"github.com/anatolyi0311/cupurl/internal/app/server"
 	"github.com/anatolyi0311/cupurl/internal/app/services"
-	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
@@ -56,8 +54,14 @@ func main() {
 	myShorURLService := services.NewShortURLServices(myRepository, services.ShortURLServices{}, cfg.EnvBaseURL)
 	myHandler := handlers.NewHandlers(myShorURLService, dbPool, cfg)
 
-	server := server.NewServer(cfg, setRouters(myHandler))
+	// Установка переменной окружения для включения режима разработки
+	gin.SetMode(gin.DebugMode)
+	router := gin.Default()
 
+	server := &http.Server{
+		Addr:    cfg.EnvServAdr,
+		Handler: setRouters(router, myHandler),
+	}
 	// Запуск отдельного audit
 	ctxAudit, cancelAudit := context.WithCancel(context.Background())
 	defer cancelAudit()
@@ -65,15 +69,17 @@ func main() {
 
 	go func() {
 		if cfg.EnvHTTPS != "" {
+			logrus.Info("Starting server with TLS on: ", cfg.EnvServAdr)
 			_, err = https.NewHTTPS()
 			if err != nil {
 				logrus.Error(err)
 			}
-			if err = server.RunTLS(cfg.EnvServAdr); !errors.Is(err, http.ErrServerClosed) {
+			if err = server.ListenAndServeTLS(models.CertPEM, models.PrivateKeyPEM); !errors.Is(err, http.ErrServerClosed) {
 				logrus.Fatal(err)
 			}
 		} else {
-			if err = server.Run(cfg.EnvServAdr); !errors.Is(err, http.ErrServerClosed) {
+			logrus.Info("Starting server on: ", cfg.EnvServAdr)
+			if err = server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 				logrus.Error(err)
 			}
 		}
@@ -81,13 +87,14 @@ func main() {
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	<-signalChan
+	sig := <-signalChan
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err = server.Stop(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "HTTP server Shutdown: %v\n", err)
+	logrus.Infof("Shutting down server with signal : %v...", sig)
+	if err = server.Shutdown(ctx); err != nil {
+		logrus.Errorf("HTTP server Shutdown error: %v\n", err)
 	}
 
 	//If the server shutting down, save batch to file
@@ -117,20 +124,17 @@ func getDbPool(cfg *config.ENVConfig) *pgxpool.Pool {
 	return dbPool
 }
 
-func setRouters(myHandler *handlers.Handlers) *gin.Engine {
-	// Установка переменной окружения для включения режима разработки
-	gin.SetMode(gin.DebugMode)
-	router := gin.Default()
+func setRouters(router *gin.Engine, myHandler *handlers.Handlers) *gin.Engine {
 
 	// Pprof роутер
-	// pprofRouter := router.Group("/debug/pprof")
+	pprofRouter := router.Group("/debug/pprof")
 	// pprofRouter.Handle("GET", "/", myHandler.PprofIndex)
-	// pprofRouter.GET("/", myHandler.PprofIndex)
-	// pprofRouter.GET("/profile", myHandler.PprofProfile)
-	// pprofRouter.GET("/goroutine", myHandler.PprofGoroutine)
+	pprofRouter.GET("/", myHandler.PprofIndex)
+	pprofRouter.GET("/profile", myHandler.PprofProfile)
+	pprofRouter.GET("/goroutine", myHandler.PprofGoroutine)
 
 	// Use the pprof middleware
-	pprof.Register(router)
+	// pprof.Register(router)
 
 	//Public middleware routers group
 	publicRoutes := router.Group("/")
