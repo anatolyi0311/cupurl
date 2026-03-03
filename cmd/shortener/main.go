@@ -73,9 +73,9 @@ func main() {
 				logrus.Fatal(err)
 			}
 		} else {
-		}
-		if err = server.Run(cfg.EnvServAdr); !errors.Is(err, http.ErrServerClosed) {
-			logrus.Error(err)
+			if err = server.Run(cfg.EnvServAdr); !errors.Is(err, http.ErrServerClosed) {
+				logrus.Error(err)
+			}
 		}
 	}()
 
