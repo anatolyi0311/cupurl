@@ -359,7 +359,9 @@ func (h Handlers) MiddlewareCompress() gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid gzip body"})
 				return
 			}
-			defer reader.Close()
+			if reader != nil {
+				defer reader.Close()
+			}
 			c.Request.Body = reader
 		}
 		c.Next()

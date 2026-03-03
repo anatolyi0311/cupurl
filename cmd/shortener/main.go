@@ -16,18 +16,15 @@ import (
 
 	"github.com/anatolyi0311/cupurl/internal/app/config"
 	"github.com/anatolyi0311/cupurl/internal/app/handlers"
+	"github.com/anatolyi0311/cupurl/internal/app/https"
 	"github.com/anatolyi0311/cupurl/internal/app/logcfg"
 	"github.com/anatolyi0311/cupurl/internal/app/repositories"
+	"github.com/anatolyi0311/cupurl/internal/app/server"
 	"github.com/anatolyi0311/cupurl/internal/app/services"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
-)
-
-var (
-	buildVersion string = "N/A"
-	buildDate    string = "N/A"
-	buildCommit  string = "N/A"
 )
 
 func main() {
@@ -38,6 +35,9 @@ func main() {
 		myRepository      services.Repository
 		repositoryReciver bool
 	)
+
+	// Выводим сообщение о сборке проекта
+	config.PrintProjectInfo()
 
 	cfg = config.NewConfig()
 	if cfg.EnvDataBase != "" {
@@ -56,9 +56,7 @@ func main() {
 	myShorURLService := services.NewShortURLServices(myRepository, services.ShortURLServices{}, cfg.EnvBaseURL)
 	myHandler := handlers.NewHandlers(myShorURLService, dbPool, cfg)
 
-	router := gin.Default()
-
-	server := &http.Server{Addr: cfg.EnvServAdr, Handler: setRouters(router, myHandler)}
+	server := server.NewServer(cfg, setRouters(myHandler))
 
 	// Запуск отдельного audit
 	ctxAudit, cancelAudit := context.WithCancel(context.Background())
@@ -66,37 +64,35 @@ func main() {
 	go myHandler.RunAudit(ctxAudit)
 
 	go func() {
-		logrus.Info("Starting server on: ", cfg.EnvServAdr)
-		if err = server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		if cfg.EnvHTTPS != "" {
+			_, err = https.NewHTTPS()
+			if err != nil {
+				logrus.Error(err)
+			}
+			if err = server.RunTLS(cfg.EnvServAdr); !errors.Is(err, http.ErrServerClosed) {
+				logrus.Fatal(err)
+			}
+		} else {
+		}
+		if err = server.Run(cfg.EnvServAdr); !errors.Is(err, http.ErrServerClosed) {
 			logrus.Error(err)
 		}
 	}()
 
-	logrus.Printf("Build version: %s\n", buildVersion)
-	logrus.Printf("Build date: %s\n", buildDate)
-	logrus.Printf("Build commit: %s\n", buildCommit)
-
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-signalChan
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	logrus.Info("Shutting down server...")
-	if err = server.Shutdown(ctx); err != nil {
+	if err = server.Stop(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "HTTP server Shutdown: %v\n", err)
 	}
 
 	//If the server shutting down, save batch to file
 	if repositoryReciver {
-		if _, ok := myRepository.(services.URLInMemoryRepository); !ok {
-			logrus.Errorf("invalid type assertion %v", myRepository)
-		}
-		err = myRepository.(services.URLInMemoryRepository).SaveBatchToFile()
-		if err != nil {
-			logrus.Error(err)
-		}
+		saveBatchToFile(myRepository)
 	}
 
 	// Запуск отдельного pprof-сервера
@@ -121,13 +117,20 @@ func getDbPool(cfg *config.ENVConfig) *pgxpool.Pool {
 	return dbPool
 }
 
-func setRouters(router *gin.Engine, myHandler *handlers.Handlers) *gin.Engine {
+func setRouters(myHandler *handlers.Handlers) *gin.Engine {
+	// Установка переменной окружения для включения режима разработки
+	gin.SetMode(gin.DebugMode)
+	router := gin.Default()
+
 	// Pprof роутер
-	pprofRouter := router.Group("/debug/pprof")
+	// pprofRouter := router.Group("/debug/pprof")
 	// pprofRouter.Handle("GET", "/", myHandler.PprofIndex)
-	pprofRouter.GET("/", myHandler.PprofIndex)
-	pprofRouter.GET("/profile", myHandler.PprofProfile)
-	pprofRouter.GET("/goroutine", myHandler.PprofGoroutine)
+	// pprofRouter.GET("/", myHandler.PprofIndex)
+	// pprofRouter.GET("/profile", myHandler.PprofProfile)
+	// pprofRouter.GET("/goroutine", myHandler.PprofGoroutine)
+
+	// Use the pprof middleware
+	pprof.Register(router)
 
 	//Public middleware routers group
 	publicRoutes := router.Group("/")
@@ -171,4 +174,14 @@ func makePprof() error {
 	// 	panic(err)
 	// }
 	return nil
+}
+
+func saveBatchToFile(myRepository services.Repository) {
+	if _, ok := myRepository.(services.URLInMemoryRepository); !ok {
+		logrus.Errorf("invalid type assertion %v", myRepository)
+	}
+	err := myRepository.(services.URLInMemoryRepository).SaveBatchToFile()
+	if err != nil {
+		logrus.Error(err)
+	}
 }

@@ -150,9 +150,14 @@ func (a *Audit) sendToHost(event Event) error {
 	}
 
 	resp, err := client.Do(req)
-	resp.Body.Close()
-
-	return err
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		// handle error
+		return err
+	}
+	return nil
 }
 
 // CreateEvent создает новое событие аудита.
