@@ -45,7 +45,7 @@ func NewConfig() *ENVConfig {
 	flag.StringVar(&cfg.EnvStoragePath, "f", "/tmp/short-url-db.json", "Path for saving data file")
 	flag.StringVar(&cfg.EnvLogLevel, "l", "info", "Set logg level")
 	flag.StringVar(&cfg.EnvDataBase, "d", "", "Set connect DB config")
-	flag.StringVar(&cfg.EnvSecretKey, "s", "", "Set secret key")
+	flag.StringVar(&cfg.EnvSecretKey, "k", "", "Set secret key")
 	flag.StringVar(&cfg.AuditFile, "audit-file", "", "audit file save events")
 	flag.StringVar(&cfg.AuditURL, "audit-url", "", "audit url send events")
 	flag.StringVar(&cfg.EnvHTTPS, "s", "", "Set HTTPS on enable")
