@@ -385,6 +385,7 @@ func (h Handlers) MiddlewareAuthPublic() gin.HandlerFunc {
 			if err != nil {
 				logrus.Errorf("error generating token: %v", err)
 				c.AbortWithStatus(http.StatusInternalServerError)
+				return
 			}
 			c.SetCookie("user_token", tokenString, 0, "/", "", false, true)
 		}
@@ -409,11 +410,13 @@ func (h Handlers) MiddlewareAuthPrivate() gin.HandlerFunc {
 		if err != nil {
 			c.SetCookie("user_token", tokenString, 0, "/", "", false, true)
 			c.AbortWithStatus(http.StatusNoContent) // http.StatusUnauthorized
+			return
 		}
 		userID, err := auth.GetUserID(tokenString, h.SecretKey)
 		if err != nil {
 			c.SetCookie("user_token", tokenString, 0, "/", "", false, true)
 			c.AbortWithStatus(http.StatusNoContent) // http.StatusUnauthorized
+			return
 		}
 		ctx := context.WithValue(c.Request.Context(), models.UserIDKey, userID)
 		c.Request = c.Request.WithContext(ctx)

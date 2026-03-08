@@ -50,6 +50,7 @@ func NewConfig() *ENVConfig {
 	flag.StringVar(&cfg.AuditURL, "audit-url", "", "audit url send events")
 	flag.StringVar(&cfg.EnvHTTPS, "s", "", "Set HTTPS on enable")
 
+	// Parse the command line arguments
 	flag.Parse()
 
 	// Parse config from JSON file if provided
@@ -89,31 +90,39 @@ func setConfigFromFile(path string, cfg1 *ENVConfig) error {
 		return err
 	}
 
-	if flag.Lookup("a") == nil {
+	if isFlagPassed("a") {
 		cfg1.EnvServAdr = cfgFromFile.EnvServAdr
+	} else {
+		fmt.Println("The 'a' flag used its default value.")
 	}
-
-	if flag.Lookup("b") == nil {
+	if isFlagPassed("b") {
 		cfg1.EnvBaseURL = cfgFromFile.EnvBaseURL
 	}
-
-	if flag.Lookup("f") == nil {
+	if isFlagPassed("f") {
 		cfg1.EnvStoragePath = cfgFromFile.EnvStoragePath
 	}
-
-	if flag.Lookup("l") == nil {
+	if isFlagPassed("l") {
 		cfg1.EnvLogLevel = cfgFromFile.EnvLogLevel
 	}
-
-	if flag.Lookup("d") == nil {
+	if isFlagPassed("d") {
 		cfg1.EnvDataBase = cfgFromFile.EnvDataBase
 	}
-
-	if flag.Lookup("s") == nil {
+	if isFlagPassed("s") {
 		cfg1.EnvHTTPS = cfgFromFile.EnvHTTPS
 	}
 
 	return nil
+}
+
+// Helper function to check if a flag was passed
+func isFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
 }
 
 // getValueOrDefault returns the value, and if it is empty,it returns the default value.
