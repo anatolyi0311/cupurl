@@ -19,6 +19,12 @@ type URL struct {
 	OriginalURL string `json:"original_url"`
 }
 
+// Stats represent service info count
+type Stats struct {
+	CountURLs  uint32 `json:"urls"`
+	CountUsers uint32 `json:"users"`
+}
+
 // CTXKey is the type used as a context key for storing user ID.
 type CTXKey string
 

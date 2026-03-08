@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
+	realip "github.com/thanhhh/gin-gonic-realip"
 )
 
 func main() {
@@ -152,6 +153,13 @@ func setRouters(myHandler *handlers.Handlers) *gin.Engine {
 
 	privateRoutes.GET("/api/user/urls", myHandler.GetUserURLS)
 	privateRoutes.DELETE("/api/user/urls", myHandler.DelUserURLS)
+
+	//Only trusted subnet middleware
+	trustSubnetRouter := router.Group("/")
+	trustSubnetRouter.Use(realip.RealIP())
+	trustSubnetRouter.Use(handlers.TrustedSubnet(myHandler.TrustedSubnets))
+
+	trustSubnetRouter.GET("/api/internal/stats", myHandler.GetServiceStats)
 
 	return router
 }

@@ -226,3 +226,21 @@ func (d *URLInDBRepo) GetShortBatchURLFromDB(ctx context.Context, batchURLReques
 
 	return shortsURL, tx.Commit(ctx)
 }
+
+// GetStats retrieves the statistics of URLs and users from the database.
+// This method executes a SQL query to retrieve the count of URLs and users from the 'cupurl' table.
+// It then constructs a Stats struct containing the counts and returns it along with any error encountered.
+func (d *URLInDBRepo) GetStats(ctx context.Context) (models.Stats, error) {
+	const selectQuery = `SELECT 
+    					 COUNT(shorturl),
+    					 COUNT(DISTINCT userID)
+						 FROM cupurl`
+	var urls, users uint32
+	err := d.DB.QueryRow(ctx, selectQuery).Scan(&urls, &users)
+	if err != nil {
+		logrus.Error("error querying for count urls or users: ", err)
+		return models.Stats{}, fmt.Errorf("error querying for count urls or users: %w", err)
+	}
+	stats := models.Stats{CountURLs: urls, CountUsers: users}
+	return stats, nil
+}

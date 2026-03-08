@@ -212,3 +212,13 @@ func (m *URLInMemoryRepo) GetUserURLSFromDB(ctx context.Context) ([]models.URL, 
 func (m *URLInMemoryRepo) MarkURLsAsDeleted(ctx context.Context, URLSToDel []string) error {
 	return nil
 }
+
+// GetStats returns the statistics of URLs and users stored in the in-memory repository.
+// This method retrieves the count of shortened URLs and unique users from the in-memory repository.
+// It then constructs a Stats struct containing the counts and returns it along with any error encountered.
+func (m *URLInMemoryRepo) GetStats(ctx context.Context) (models.Stats, error) {
+	countURLs := uint32(len(m.shortToOrigURL))
+	countUsers := uint32(len(m.usersURLS))
+	stats := models.Stats{CountURLs: countURLs, CountUsers: countUsers}
+	return stats, nil
+}

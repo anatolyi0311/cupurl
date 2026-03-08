@@ -32,6 +32,7 @@ type ENVConfig struct {
 	AuditFile      string `env:"AUDIT_FILE"`
 	AuditURL       string `env:"AUDIT_URL"`
 	EnvHTTPS       string `env:"ENABLE_HTTPS"`
+	EnvSubnet      string `env:"TRUSTED_SUBNET"`
 }
 
 // NewConfig creates a new ENVConfig instance by parsing command line flags and environment variables.
@@ -49,6 +50,7 @@ func NewConfig() *ENVConfig {
 	flag.StringVar(&cfg.AuditFile, "audit-file", "", "audit file save events")
 	flag.StringVar(&cfg.AuditURL, "audit-url", "", "audit url send events")
 	flag.StringVar(&cfg.EnvHTTPS, "s", "", "Set HTTPS on enable")
+	flag.StringVar(&cfg.EnvSubnet, "t", "", "Enter trusted subnet or use TRUSTED_SUBNET env")
 
 	// Parse the command line arguments
 	flag.Parse()
@@ -109,6 +111,9 @@ func setConfigFromFile(path string, cfg1 *ENVConfig) error {
 	}
 	if isFlagPassed("s") {
 		cfg1.EnvHTTPS = cfgFromFile.EnvHTTPS
+	}
+	if isFlagPassed("t") {
+		cfg1.EnvSubnet = cfgFromFile.EnvSubnet
 	}
 
 	return nil
