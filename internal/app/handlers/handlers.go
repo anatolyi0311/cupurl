@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"net/url"
@@ -44,15 +45,18 @@ type Service interface {
 	GetUserURLS(ctx context.Context) ([]models.URL, error)
 	// AsyncDeleteUserURLs async runs requests to DB for mark user URLs as deleted
 	AsyncDeleteUserURLs(ctx context.Context, URLSToDel []string)
+	// GetServiceStats retrieves the statistics of URLs and users from the service's repository.
+	GetServiceStats(ctx context.Context) (models.Stats, error)
 }
 
 // Handlers is a struct that contains HTTP request handlers and a database connection pool.
 // generate:reset
 type Handlers struct {
-	service   Service
-	DB        *pgxpool.Pool
-	SecretKey string
-	audit     audit.Observer
+	service        Service
+	DB             *pgxpool.Pool
+	SecretKey      string
+	audit          audit.Observer
+	TrustedSubnets []*net.IPNet //The collection trusted subnet
 }
 
 // URLProcessing is a struct used for JSON processing in some of the handlers.
@@ -66,12 +70,35 @@ func NewHandlers(service Service, DB *pgxpool.Pool, cfg *config.ENVConfig) *Hand
 	if err != nil {
 		logrus.Warn("audit not init")
 	}
-	return &Handlers{
-		service:   service,
-		DB:        DB,
-		SecretKey: cfg.EnvSecretKey,
-		audit:     audit,
+	trustedSubnets, err := initTrustedSubnets(context.Background(), cfg)
+	if err != nil {
+		logrus.Warn("audit not init")
 	}
+	return &Handlers{
+		service:        service,
+		DB:             DB,
+		SecretKey:      cfg.EnvSecretKey,
+		audit:          audit,
+		TrustedSubnets: trustedSubnets,
+	}
+}
+
+// parseSubnets parses a string containing a list of CIDR subnets and returns them as a []*net.IPNet objects.
+func initTrustedSubnets(_ context.Context, cfg *config.ENVConfig) ([]*net.IPNet, error) {
+	var subnets []*net.IPNet
+	if cfg.EnvSubnet != "" {
+		subStr := strings.Split(cfg.EnvSubnet, ",")
+		for _, subnetStr := range subStr {
+			_, subnetIPNet, err := net.ParseCIDR(subnetStr)
+			if err != nil {
+				logrus.WithError(err).Error("error parsing string CIDR")
+				return nil, err
+			}
+			subnets = append(subnets, subnetIPNet)
+		}
+	}
+	// trustedSubnets = subnets
+	return subnets, nil
 }
 
 func (h *Handlers) RunAudit(ctx context.Context) {
@@ -422,4 +449,17 @@ func (h Handlers) MiddlewareAuthPrivate() gin.HandlerFunc {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
+}
+
+// GetServiceStats first retrieves the statistics using the GetServiceStats method of the service.
+// If an error occurs during the retrieval process, it responds with a 403 Forbidden status code and an error message.
+// Otherwise, it responds with a 200 OK status code and the retrieved statistics in JSON format.
+func (h *Handlers) GetServiceStats(c *gin.Context) {
+	ctx := c.Request.Context()
+	stats, err := h.service.GetServiceStats(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stats)
 }
