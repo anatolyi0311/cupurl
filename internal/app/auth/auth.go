@@ -3,8 +3,9 @@
 package auth
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -14,7 +15,7 @@ import (
 // Claims — claims structure that includes standard claims and UserID
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID uint32
+	UserID int64
 }
 
 // const for generate token
@@ -46,15 +47,26 @@ func BuildJWTString(secretKey string) (string, error) {
 }
 
 // generate Unique ID generate a unique UserID from 0 to 999999
-func generateUniqueID() uint32 {
-	rand.NewSource(time.Now().UnixNano())
-	id := uint32(rand.Intn(1000000))
+func generateUniqueID() int64 {
+	id, err := generateRandomInt(100)
+		if err != nil {
+		logrus.Fatal(err)
+	}
 	logrus.Infof("Generated user id is: %v", id)
 	return id
 }
 
+func generateRandomInt(max int64) (int64, error) {
+	// big.NewInt(max) creates a new big.Int with value max
+	bi, err := rand.Int(rand.Reader, big.NewInt(max))
+	if err != nil {
+		return 0, err
+	}
+	return bi.Int64(), nil
+}
+
 // GetUserID we check the validity of the token and if it is valid, then we get and return the UserID from it
-func GetUserID(tokenString, secretKey string) (uint32, error) {
+func GetUserID(tokenString, secretKey string) (int64, error) {
 	if secretKey == "" {
 		secretKey = SecretKey
 	}

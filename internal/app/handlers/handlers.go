@@ -375,7 +375,7 @@ func (h Handlers) MiddlewareAuthPublic() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
 		var err error
-		var userID uint32
+		var userID int64
 
 		tokenString, err = c.Cookie("user_token")
 		// если токен не найден в куке, то генерируем новый и добавляем его в куки
