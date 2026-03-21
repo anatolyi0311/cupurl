@@ -1,6 +1,6 @@
 module github.com/anatolyi0311/cupurl
 
-go 1.25.7
+go 1.24.13
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
