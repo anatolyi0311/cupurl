@@ -15,6 +15,8 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/thanhhh/gin-gonic-realip v0.0.0-20180527053022-1a91c06e8abf
 	golang.org/x/tools v0.40.1-0.20260108161641-ca281cf95054
+	google.golang.org/grpc v1.79.3
+	google.golang.org/protobuf v1.36.10
 	honnef.co/go/tools v0.4.6
 )
 
@@ -58,7 +60,7 @@ require (
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
-	google.golang.org/protobuf v1.36.9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
