@@ -35,7 +35,7 @@ func (s *ShortenerServer) GetOriginalURL(ctx context.Context,
 	if err != nil {
 		if errors.Is(err, models.ErrURLDeleted) {
 
-			return nil, status.Errorf(codes.NotFound, err.Error())
+			return nil, status.Errorf(codes.NotFound, `error: %s`, err.Error())
 		}
 		return nil, status.Errorf(codes.InvalidArgument, `error: %v`, err)
 	}
