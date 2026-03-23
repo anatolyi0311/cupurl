@@ -54,7 +54,7 @@ func (d *URLInDBRepo) createBDTable() error {
 
 func (d *URLInDBRepo) Ping(ctx context.Context) error {
 	if d.DB != nil {
-		if err := d.Ping(ctx); err != nil {
+		if err := d.DB.Ping(ctx); err != nil {
 			logrus.Error(err)
 			return err
 		}

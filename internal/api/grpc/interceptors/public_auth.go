@@ -25,7 +25,7 @@ func UnaryPublicAuthInterceptor(ctx context.Context, req interface{},
 	var userID int64
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
-		values := md.Get("token")
+		values := md.Get("authorization")
 		if len(values) > 0 {
 			tokenString = values[0]
 		}
